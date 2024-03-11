@@ -28,7 +28,7 @@
 
 * [Citation](#citation)
 
-* [The Team](#TheTeam)
+* [The Team](#The-Team)
 
 * [License](#License)
 
