@@ -22,9 +22,9 @@
 
 * [Install](#install)
 
-* [Quick start](#Quickstart)
+* [Quick start](#Quick start)
 
-* [API documentation](#APIdocumentation)
+* [API documentation](#API-documentation)
 
 * [Citation](#citation)
 
