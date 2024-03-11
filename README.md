@@ -14,7 +14,7 @@
 
 * [Features](#features)
 
-* [Method framework](#Method framework)
+* [Method framework](#Methodframework)
 
 * [Benchmarks](#Benchmarks)
 
@@ -22,13 +22,13 @@
 
 * [Install](#install)
 
-* [Quick start](#Quick start)
+* [Quick start](#Quickstart)
 
-* [API documentation](#API documentation)
+* [API documentation](#APIdocumentation)
 
 * [Citation](#citation)
 
-* [The Team](#The Team)
+* [The Team](#TheTeam)
 
 * [License](#License)
 
