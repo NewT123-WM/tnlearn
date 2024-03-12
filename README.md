@@ -4,7 +4,7 @@
 
  Tnlearn is an open source python library. It is based on the symbolic regression algorithm to generate task-based neurons, and then utilizes diverse neurons to build neural networks.
 
-![Static Badge](https://img.shields.io/badge/Python-3.9%2B-brightgreen.svg)![Static Badge](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)  ![Static Badge](https://img.shields.io/badge/pypi-v0.1.0-orange?logo=PyPI)
+![Static Badge](https://img.shields.io/badge/Python-3.9%2B-brightgreen.svg)![Static Badge](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg) ![Static Badge](https://img.shields.io/badge/pypi-v0.1.0-orange?logo=PyPI)![GitHub Repo stars](https://img.shields.io/github/stars/NewT123-WM/tnlearn?style=flat&logo=github)  
 
 
 
