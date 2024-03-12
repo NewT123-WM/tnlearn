@@ -14,7 +14,7 @@
 
 * [Features](#features)
 
-* [Method framework](#Method-framework)
+* [Overview](#Overview)
 
 * [Benchmarks](#Benchmarks)
 
@@ -36,45 +36,69 @@
 
 # Motivation
 
-In the past decade, many successful networks are on novel architectures, which almost exclusively use the same type of neurons. Recently, more and more deep learning studies have been inspired by the idea of NeuroAI and the neuronal diversity observed in human brains, leading to the proposal of novel artificial neuron designs. Designing well-performing neurons represents a new dimension relative to designing well-performing neural architectures. Biologically, the brain does not rely on a single type of neuron that universally functions in all aspects. Instead, it acts as a sophisticated designer of task-based neurons. 
+* **NuronAI inspired** In the past decade, successful networks have primarily used a single type of neurons within novel architectures, yet recent deep learning studies have been inspired by the diversity of human brain neurons, leading to the proposal of new artificial neuron designs.
 
-Since the human brain is a task-based neuron user, can the artificial network design go from the task-based architecture design to the task-based neuron design? 
+* **Task-Based Neuron Design**  Given the human brain's reliance on task-based neurons, can artificial network design shift from focusing on task-based architecture to task-based neuron design?
 
-Since methodologically there are no one-size-fits-all neurons, given the same structure, task-based neurons can enhance the feature representation ability relative to the existing universal neurons due to the intrinsic inductive bias for the task. 
+* **Enhanced Representation** Since there are no universally applicable neurons, task-based neurons could enhance feature representation ability within the same structure, due to the intrinsic inductive bias for the task.
 
 
 
 # Features
 
-We propose a two-step framework for prototyping task-based neurons. First, symbolic regression is used to identify optimal formulas that fit input data by utilizing base functions such as logarithmic, trigonometric, and exponential functions. We introduce vectorized symbolic regression that stacks all variables in a vector and regularizes each input variable to perform the same computation, which can expedite the regression speed, facilitate parallel computation, and avoid overfitting. Second, we parameterize the acquired elementary formula to make parameters learnable, which serves as the aggregation function of the neuron. The activation functions such as ReLU and the sigmoidal functions remain the same because they have proven to be good. 
+* Vectorized symbolic regression is employed to find optimal formulas that fit input data.
+
+* We parameterize the obtained elementary formula to create learnable parameters, serving as the neuron's aggregation function.
 
 
 
-# Method framework
-
-<div align="center">
-  <img src="framework.png" width="90%" />
-</div>
+# Overview
 
 
-* First, we introduce vectorized symbolic regression to construct an elementary neuronal model (Figure a). Symbolic regression draws inspiration from scientific discoveries in physics, aiming to identify optimal formulas that fit input data by utilizing base functions such as logarithmic, trigonometric, and exponential functions. The vectorized symbolic regression stacks all variables in a vector and regularizes each input variable to perform the same computation. Given the complexity and unclear nonlinearity of the tasks, formulas learned from vectorized symbolic regression can capture the underlying patterns in the data, and these patterns are different in different contexts. Thus, fixed formulas used in pre-designed neurons are disadvantageous.
-* Second, we parameterize the acquired elementary formula to make parameters learnable (Figure b), which serves as the aggregation function of the neuron. The role of the vectorized symbolic regression is to identify the basic patterns behind data, the parameterization allows the task-based neurons to adapt and interact with each other within a network.
+
+A nice picture describing the structure of tnlearn will be produced here.
+
+
+
+
+
+
+
+
 
 
 
 # Benchmarks
 
-We first perform the vectorized symbolic regression on the normalized dataset. The relevant information regarding these 20 datasets, and the regression results are shown in Table 5.
+We select several advanced machine learning methods for comparison.
 
-<div align="center">
-  <img src="table5.png" width="90%" />
-</div>
+|     Method      |                            Venues                            |                          Code link                           |
+| :-------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+|     XGBoost     | [ACM SIGKDD 2016](https://dl.acm.org/doi/abs/10.1145/2939672.2939785) |    [Adopt official code](https://github.com/dmlc/xgboost)    |
+|    LightGBM     | [NeurIPS 2017](https://proceedings.neurips.cc/paper_files/paper/2017/file/6449f44a102fde848669bdd9eb6b76fa-Paper.pdf) | Implemented by [widedeep](https://github.com/jrzaurin/pytorch-widedeep) |
+|    CatBoost     | [Journal of big data](https://link.springer.com/article/10.1186/s40537-020-00369-8) | [Adopt official code](https://github.com/catboost/catboost)  |
+|     TabNet      | [AAAI 2021](https://ojs.aaai.org/index.php/AAAI/article/view/16826) | Implemented by [widedeep](https://github.com/jrzaurin/pytorch-widedeep) |
+| Tab Transformer |          [arxiv](https://arxiv.org/abs/2012.06678)           | [Adopt official code](https://github.com/lucidrains/tab-transformer-pytorch) |
+| FT-Transformer  | [NeurIPS 2021](https://proceedings.neurips.cc/paper_files/paper/2021/hash/9d86d83f925f2149e9edb0ac3b49229c-Abstract.html) | Implemented by [widedeep](https://github.com/jrzaurin/pytorch-widedeep) |
+|     DANETs      | [AAAI 2022](https://ojs.aaai.org/index.php/AAAI/article/view/20309) |  [Adopt official code](https://github.com/whatashot/danet)   |
 
-Here, we test the superiority of task-based neurons relative to linear ones. We use the same 20 datasets in the last subsection: 10 for regression and 10 for classification. We don't need to repeat the process of the vectorized symbolic regression. Instead, we directly use polynomials learned in Table 5. The training and test sets are divided according to the ratio of $8:2$. For *TN*  and *LN*, the data division and the batch size are the same. We select 5 different network structures for each dataset for a comprehensive comparison. When designing the network structures of *TN*, we ensure that the number of parameters of *TN* is fewer than the *LN* to show the superiority of task-based neurons in efficiency. The specific network structure and corresponding number of parameters are shown in SMs. Each dataset is tested 10 times for reliability of results. The MSE and classification accuracy are presented in the form of $\mathrm{mean}~(\mathrm{std})$ in Table 6.
 
-<div align="center">
-  <img src="table6.png" width="90%" />
-</div>
+
+We test multiple advanced machine learning methods on two sets of real-world data. The test results (MSE) are shown in the following table:
+
+|       Method       | [Particle collision](https://www.kaggle.com/datasets/fedesoriano/cern-electron-collision-data) | [Asteroid prediction](https://www.kaggle.com/datasets/basu369victor/prediction-of-<br/>asteroid-diameter) |
+| :----------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+|      XGBoost       |                      $0.0094\pm0.0006$                       |                      $0.0646\pm0.1031$                       |
+|      LightGBM      |                      $0.0056\pm0.0004$                       |                      $0.1391\pm0.1676$                       |
+|      CatBoost      |                      $0.0028\pm0.0002$                       |                      $0.0817\pm0.0846$                       |
+|       TabNet       |                      $0.0040\pm0.0006$                       |                      $0.0627\pm0.0939$                       |
+|   TabTransformer   |                      $0.0038\pm0.0008$                       |                      $0.4219\pm0.2776$                       |
+|   FT-Transformer   |                      $0.0050\pm0.0020$                       |                      $0.2136\pm0.2189$                       |
+|       DANETs       |                      $0.0076\pm0.0009$                       |                      $0.1709\pm0.1859$                       |
+| Task-based Network |                  $\mathbf{0.0016\pm0.0005}$                  |                  $\mathbf{0.0513\pm0.0551}$                  |
+
+
+
 
 
 
@@ -98,6 +122,12 @@ Tnlearn and its dependencies can be easily installed with pip:
 pip install tnlearn
 ```
 
+Tnlearn and its dependencies can be easily installed with conda:
+
+```shell
+conda install -c tnlearn
+```
+
 
 
 # Quick start
@@ -107,6 +137,12 @@ This is a quick example to show you how to use tnlearn in regression tasks. Note
 ```python
 from tnlearn import Regressor
 from tnlearn import MLPRegressor
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+
+# Generate data.
+X, y = make_regression(n_samples=200, random_state=1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
 # A symbolic regression algorithm is used to generate task-based neurons.
 neuron = Regressor()
@@ -156,10 +192,4 @@ Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](h
 # License
 
 Tnlearn is released under the BSD 3-Clause License.
-
-
-
-
-
-
 
