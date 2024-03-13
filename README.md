@@ -108,9 +108,9 @@ Here is a resource summary for neuronal diversity in artificial networks.
 |                           Resource                           |                             Type                             |                         Description                          |
 | :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
 |      [QuadraLib](https://github.com/zarekxu/QuadraLib)       | [Library](https://proceedings.mlsys.org/paper_files/paper/2022/hash/6270a15843a2e06a95d3e3ad8b489e4b-Abstract.html) | The QuadraLib is a library for the efficient optimization and design exploration of quadratic networks.The paper of QuadraLib won MLSys 2022’s best paper award. |
-| [Dr. Fenglei Fan’s GitHub Page]([FengleiFan (github.com)](https://github.com/FengleiFan)) |                             Code                             | Dr. Fenglei Fan’s GitHub Page summarizes a series of papers and associated code on quadratic networks, including quadratic autoencoder and the training algorithm ReLinear. |
-| [Polynomial Network]([grigorisg9gr/polynomial_nets: Official Implementation of the CVPR'20 paper 'Π-nets: Deep Polynomial Neural Networks' and its T-PAMI-21 extension. (github.com)](https://github.com/grigorisg9gr/polynomial_nets)) |                             Code                             | This repertoire shows how to build a deep polynomial network and sparsify it with tensor decomposition. |
-| [Dendrite]([Dendrites book — Neural Computation Lab](http://www.dendrites.org/dendrites-book)) |                             Book                             | A comprehensive book covering all aspects of dendritic computation. |
+| [Dr. Fenglei Fan’s GitHub Page](https://github.com/FengleiFan) |                             Code                             | Dr. Fenglei Fan’s GitHub Page summarizes a series of papers and associated code on quadratic networks, including quadratic autoencoder and the training algorithm ReLinear. |
+| [Polynomial Network](https://github.com/grigorisg9gr/polynomial_nets) |                             Code                             | This repertoire shows how to build a deep polynomial network and sparsify it with tensor decomposition. |
+|     [Dendrite](http://www.dendrites.org/dendrites-book)      |                             Book                             | A comprehensive book covering all aspects of dendritic computation. |
 
 
 
