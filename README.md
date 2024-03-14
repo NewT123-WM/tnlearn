@@ -157,7 +157,7 @@ from sklearn.model_selection import train_test_split
 X, y = make_regression(n_samples=200, random_state=1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
-# A symbolic regression algorithm is used to generate task-based neurons.
+# A vectorized symbolic regression algorithm is used to generate task-based neurons.
 neuron = VecSymRegressor()
 neuron.fit(X_train, y_train)
 
