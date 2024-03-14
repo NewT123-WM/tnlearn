@@ -11,7 +11,7 @@ setup(
     description="A package for symbolic regression and neural network modeling",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/your_username/tnlearn",  # need to create!!!
+    url="https://github.com/NewT123-WM/tnlearn",  
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

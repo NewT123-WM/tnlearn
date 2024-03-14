@@ -1,15 +1,15 @@
 import h5py
-from tnlearn import Regressor
+from tnlearn import VecSymRegressor
 import numpy as np
 
-neuron = Regressor(random_state=100,
-                   pop_size=500,
-                   max_generations=20,
-                   tournament_size=10,
-                   x_pct=0.7,
-                   xover_pct=0.3,
-                   save=True,
-                   operations=None)
+neuron = VecSymRegressor(random_state=100,
+                         pop_size=500,
+                         max_generations=20,
+                         tournament_size=10,
+                         x_pct=0.7,
+                         xover_pct=0.3,
+                         save=True,
+                         operations=None)
 
 with h5py.File('epsilon_high.h5', 'r') as f:
     X_train = np.array(f['no1']['x_train'])

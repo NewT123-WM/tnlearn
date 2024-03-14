@@ -27,13 +27,13 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.model_selection import train_test_split
 import torch.optim.lr_scheduler as lr_scheduler
-from .utils import MyData
-from .neurons import CustomNeuronLayer
-from .utils import random_seed
-from .utils import get_activation_function
-from .utils import get_loss_function
-from .utils import get_optimizer
-from .base import BaseModel
+from tnlearn.utils import MyData
+from tnlearn.neurons import CustomNeuronLayer
+from tnlearn.utils import random_seed
+from tnlearn.utils import get_activation_function
+from tnlearn.utils import get_loss_function
+from tnlearn.utils import get_optimizer
+from tnlearn.base import BaseModel
 
 
 class MLPRegressor(BaseModel):

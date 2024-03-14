@@ -1,13 +1,13 @@
 """
-Program name: Symbolic Regression with Regressor Class
+Program name: Vectorized Symbolic Regression with VecSymRegressor Class
 Purpose description: This script implements the symbolic regression algorithm through
-                     the Regressor class, enabling the evolution of mathematical expressions
+                     the VecSymRegressor class, enabling the evolution of mathematical expressions
                      to fit given data. The class provides methods for generating random expressions,
                      evaluating their fitness, and evolving expressions through mutation and crossover.
                      It aims to find the best-fitting mathematical model for a given dataset.
 Last revision date: February 27, 2024
 Known Issues: None identified at the time of the last revision.
-Note: This overview assumes that the Regressor class and all its dependencies are properly installed
+Note: This overview assumes that the VecSymRegressor class and all its dependencies are properly installed
       and functional.
 """
 
@@ -18,10 +18,10 @@ from random import randint, random, shuffle
 from copy import deepcopy
 import re
 from tqdm import tqdm
-from .utils import random_seed
+from tnlearn.utils import random_seed
 
 
-class Regressor:
+class VecSymRegressor:
     def __init__(self,
                  random_state=100,
                  pop_size=5000,

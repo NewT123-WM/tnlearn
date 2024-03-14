@@ -148,7 +148,7 @@ conda install -c tnlearn
 This is a quick example to show you how to use tnlearn in regression tasks. Note that your data types should be tabular data.
 
 ```python
-from tnlearn import Regressor
+from tnlearn import VecSymRegressor
 from tnlearn import MLPRegressor
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
@@ -158,7 +158,7 @@ X, y = make_regression(n_samples=200, random_state=1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
 # A symbolic regression algorithm is used to generate task-based neurons.
-neuron = Regressor()
+neuron = VecSymRegressor()
 neuron.fit(X_train, y_train)
 
 # Build neural network using task-based neurons and train it.

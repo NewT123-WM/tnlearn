@@ -1,36 +1,36 @@
 """
-Program name: Regressor Class Testing
-Purpose description: This program is for unit testing the Regressor class, ensuring the correctness
-                     of its evaluation, simplification, and random weight generation methods. The Regressor
+Program name: VecSymRegressor Class Testing
+Purpose description: This program is for unit testing the VecSymRegressor class, ensuring the correctness
+                     of its evaluation, simplification, and random weight generation methods. The VecSymRegressor
                      class utilizes evolutionary algorithms for regression tasks, and this testing suite
                      aims to verify functional integrity across its methods using predefined conditions and parameters.
 Last revision date: February 20, 2024
-Tests: This test suite covers the main functional aspects of the Regressor class using simple assertions
+Tests: This test suite covers the main functional aspects of the VecSymRegressor class using simple assertions
        and is not reliant on synthetic datasets from sklearn's make_regression.
 Known Issues: None reported as of the last revision date.
-Note: This testing program assumes the correct implementation of a hypothetical Regressor class which is
+Note: This testing program assumes the correct implementation of a hypothetical VecSymRegressor class which is
       not part of the sklearn library. It specifically checks that the methods behave as expected when
       called with reasonable inputs.
 """
 
 import unittest
 import numpy as np
-from tnlearn import Regressor
+from tnlearn import VecSymRegressor
 
 
-# Custom Regressor testing class inheriting from TestCase in the unittest module
+# Custom VecSymRegressor testing class inheriting from TestCase in the unittest module
 class TestRegressor(unittest.TestCase):
 
     # Set up function to initialize the regressor object before each test
     def setUp(self):
-        # The Regressor is initialized with various hyperparameters
-        self.regressor = Regressor(random_state=100,
-                                   pop_size=5000,
-                                   max_generations=30,
-                                   tournament_size=10,
-                                   x_pct=0.7,
-                                   xover_pct=0.3,
-                                   save=False)
+        # The VecSymRegressor is initialized with various hyperparameters
+        self.regressor = VecSymRegressor(random_state=100,
+                                         pop_size=5000,
+                                         max_generations=30,
+                                         tournament_size=10,
+                                         x_pct=0.7,
+                                         xover_pct=0.3,
+                                         save=False)
 
     # Test to evaluate the functionality of the evaluate method
     def test_evaluate(self):
