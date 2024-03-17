@@ -162,7 +162,8 @@ neuron = VecSymRegressor()
 neuron.fit(X_train, y_train)
 
 # Build neural network using task-based neurons and train it.
-clf = MLPRegressor(neurons=neuron.neuron)
+clf = MLPRegressor(neurons=neuron.neuron，
+                   layers_list=[50,30,10]) #Specify the structure of the hidden layers in the MLP.
 clf.fit(X_train, y_train)
 
 # Predict
