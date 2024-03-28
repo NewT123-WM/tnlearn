@@ -178,7 +178,7 @@ There are many hyperparameters in tnlearn that can be debugged, making the neura
 
 # API documentation
 
-Here's our official API documentation, available on Read the Docs.
+Here's our official API documentation, available on [Read the Docs](https://tnlearn-doc.readthedocs.io/en/latest/index.html).
 
 
 
