@@ -21,8 +21,9 @@ from sklearn.metrics import roc_auc_score, f1_score, recall_score, precision_sco
 
 
 class BaseModel:
+    r"""Basic module used to ensure the normal operation of MLPClassifier and MLPRegressor."""
     def __init__(self):
-        # Initialization method of the BaseModel class that sets up a visualization tool
+        r"""Initialization method of the BaseModel class that sets up a visualization tool"""
         self.visualization = Visualization()
 
     # Method to update the progress plot during training
@@ -31,7 +32,7 @@ class BaseModel:
         self.visualization.update(self.current_epoch, loss, accuracy, savefig=savefig)
 
     def save(self, path, filename):
-        """Save the current model to the specified path with the given filename."""
+        r"""Save the current model to the specified path with the given filename."""
         if not os.path.exists(path):
             os.makedirs(path)
         full_path = os.path.join(path, filename)

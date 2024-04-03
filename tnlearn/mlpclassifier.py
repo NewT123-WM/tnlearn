@@ -9,7 +9,7 @@ Purpose description: This script implements the class MLPClassifier, which exten
                      ensuring efficient computation. The class covers essential methods
                      for model training, evaluation, and prediction, making it a flexible
                      tool for supervised learning tasks in PyTorch.
-Last revision date: February 24, 2024
+Last revision date: April 3, 2024
 Known Issues: None identified at the time of the last revision.
 Note: This overview assumes that all required modules and dependencies are installed,
       including PyTorch, and that the ‘get_activation_function’ and
@@ -53,8 +53,10 @@ class MLPClassifier(BaseModel):
                  l1_reg=None,
                  l2_reg=None,
                  ):
-        """ Parameter interpretation
+        r"""Construct MLPClassifier with nonlinear neurons.
 
+
+    Args:
          neurons: Neuronal expression
          layers_list: List of neuron counts for each hidden layer
          activation_funcs: Activation functions
@@ -116,7 +118,7 @@ class MLPClassifier(BaseModel):
         random_seed(self.random_state)
 
     def select_device(self, gpu):
-        """Selects the training device based on the 'gpu' parameter."""
+        r"""Selects the training device based on the 'gpu' parameter."""
         # If gpu is None, return CPU as device
         if gpu is None:
             return torch.device("cpu")
@@ -138,8 +140,18 @@ class MLPClassifier(BaseModel):
         else:
             raise ValueError("Invalid 'gpu' parameter. It should be None, an integer, or a list/tuple of integers.")
 
-    # Constructs the neural network model based on the specified architecture
     def build_model(self, input_dim, output_dim):
+        r"""Constructs the neural network model based on the specified architecture.
+
+        Args:
+            input_dim: The input dimension of the network.
+            output_dim: The output dimension of the network.
+
+
+        Returns:
+            A fully connected network architecture.
+        """
+
         layers = []
         last_dim = input_dim
         # Iterate over the list to create each layer
@@ -151,8 +163,13 @@ class MLPClassifier(BaseModel):
         layers.append(CustomNeuronLayer(last_dim, output_dim, self.neurons))  # Final output layer
         return nn.Sequential(*layers)
 
-    # Prepares the input data and splits it into training and validation sets
     def prepare_data(self, X, y):
+        r"""Prepares the input data and splits it into training and validation sets.
+
+        Args:
+            X (torch.Tensor or numpy ndarray): Training data.
+            y (torch.Tensor or numpy ndarray): Label data.
+        """
         # Data dimension check and setting
         if not isinstance(X, np.ndarray):
             raise ValueError("X should be a NumPy array.")
@@ -179,8 +196,13 @@ class MLPClassifier(BaseModel):
         validset = MyData(X_valid, y_valid)
         self.validloader = DataLoader(validset, batch_size=self.batch_size, shuffle=True)
 
-    # Train the network with training data
     def fit(self, X, y):
+        r"""Train the network with training data.
+
+        Args:
+            X (torch.Tensor or numpy ndarray): Training data.
+            y (torch.Tensor or numpy ndarray): Label data.
+        """
         # Prepare the data
         self.prepare_data(X, y)
 
@@ -286,8 +308,15 @@ class MLPClassifier(BaseModel):
         if self.save_fig:
             self.plot_progress(loss=self.losses, accuracy=self.net_train_accuracy, savefig=self.save_fig)
 
-    # Evaluate the network using validation set
     def evaluate(self, dataloader):
+        r"""Evaluate the network using validation set.
+
+        Args:
+            dataloader: Data for evaluation.
+
+        Returns:
+            accuracy
+        """
         # Set the network to evaluation mode
         self.net.eval()
         total_correct = 0
@@ -308,8 +337,15 @@ class MLPClassifier(BaseModel):
         # Calculate accuracy
         return total_correct / total_samples
 
-    # Use a trained model to make predictions.
     def predict(self, X):
+        r"""Use a trained model to make predictions.
+
+        Args:
+            X (torch.Tensor): Data that needs to be predicted.
+
+        Returns:
+            Predicted value
+        """
         # Convert data to torch.Tensor if it's not already
         if not isinstance(X, torch.Tensor):
             X = torch.Tensor(X)
@@ -335,8 +371,16 @@ class MLPClassifier(BaseModel):
         # Return the predictions
         return np.array(predictions)
 
-    # Evaluate the score of the model.
     def score(self, X, y):
+        r"""Evaluate the score of the model.
+
+        Args:
+            X (torch.Tensor or numpy ndarray): Training data.
+            y (torch.Tensor or numpy ndarray): Label data.
+
+        Returns:
+            accuracy
+        """
         # Ensure X and y are PyTorch tensors
         if not isinstance(X, torch.Tensor):
             X = torch.tensor(X, dtype=torch.float32)

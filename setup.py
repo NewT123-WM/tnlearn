@@ -8,7 +8,7 @@ setup(
     version="0.1.0",
     author="Meng WANG",
     author_email="wangmeng22@stu.hit.edu.cn",
-    description="A package for symbolic regression and neural network modeling",
+    description="A Python package that uses task-based neurons to build neural networks.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/NewT123-WM/tnlearn",  
