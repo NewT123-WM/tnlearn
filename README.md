@@ -1,6 +1,7 @@
 <div align="center">
-  <img src="logo.png" width="100%" />
+  <img src="assets/logo.png" width="100%" />
 </div>
+
 
  Tnlearn is an open source python library. It is based on the symbolic regression algorithm to generate task-based neurons, and then utilizes diverse neurons to build neural networks.
 
