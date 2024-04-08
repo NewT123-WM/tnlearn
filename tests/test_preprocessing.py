@@ -6,12 +6,10 @@ Purpose description: This program is designed to verify the functionality of the
                      checks the preprocessing steps such as scaling for numerical features and
                      one-hot encoding for categorical features.
                      The dataset used consists of randomly generated numerical and categorical data.
-Last revision date: February 18, 2024
 Tests: The test suite ensures that the transformed data has the appropriate scaled values and
        one-hot encoded vectors across different scaler types—StandardScaler and MinMaxScaler.
        Additionally, tests verify that the transformed train and test datasets have consistent
        dimensions and expected statistical properties after transformation.
-Known Issues: None identified within the scope of numeric and categorical feature preprocessing.
 Note: The testing script presumes the proper functioning of the DataPreprocessor class, its integration
       with scikit-learn utilities like train_test_split, and correct setup of the test environment
       including dependency management for numpy, pandas, and scikit-learn.

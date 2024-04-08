@@ -5,7 +5,6 @@ Purpose description: This program conducts a series of unit tests on a mock deep
                      Tests include model saving and loading, scoring methods (AUC, F1, Recall, Precision),
                      and the plotting of training progress metrics. The MockModel class is a stand-in for
                      complex model structures during testing of the BaseModel functionality.
-Last revision date: February 20, 2024
 Tests: The suite includes tests for file operations, scoring metrics validation, and visualization
        using synthetic data to ensure each method performs as expected.
 Known Issues: The mock design assumes several base class methods and properties like `save`, `load`,
