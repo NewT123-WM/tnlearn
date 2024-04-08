@@ -1,3 +1,17 @@
+# Copyright 2024 Meng WANG. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 """
 Program name: MLPRegressor Class Implementation
 Purpose description: This script embodies the MLPRegressor class, designed as an extension
@@ -12,8 +26,6 @@ Purpose description: This script embodies the MLPRegressor class, designed as an
                      for training visualization, validation, and model performance evaluation.
                      This representation of an MLP is tailored to adapt to an array of regression
                      problems while ensuring ease of use and extensibility.
-Last revision date: February 27, 2024
-Known Issues: None have been identified at the time of the last revision.
 Note: The application of the MLPRegressor class presupposes that the necessary neural
       network modules, loss functions, and optimizers are available and correctly configured
       in the encompassing framework. It is also assumed that the user has proper knowledge
@@ -57,26 +69,27 @@ class MLPRegressor(BaseModel):
                  l1_reg=False,
                  l2_reg=False,
                  ):
-        """ Parameter interpretation
+        r""" Construct MLPRegressor with task-based neurons.
 
-         neurons: Neuronal expression
-         layers_list: List of neuron counts for each hidden layer
-         activation_funcs: Activation functions
-         loss_function: Loss function for the training process
-         optimizer_name: Name of the optimizer algorithm
-         random_state: Seed for random number generators for reproducibility
-         max_iter: Maximum number of training iterations
-         batch_size: Number of samples per batch during training
-         valid_size: Fraction of training data used for validation
-         lr: Learning rate for the optimizer
-         visual: Boolean indicating if training visualization is to be shown
-         visual_interval: Interval at which training visualization is updated
-         save: Indicates if the training figure should be saved
-         gpu: Specifies GPU configuration for training
-         interval: Interval of screen output during training
-         scheduler: Learning rate scheduler
-         l1_reg: L1 regularization term
-         l2_reg: L2 regularization term
+        Args:
+             neurons: Neuronal expression
+             layers_list: List of neuron counts for each hidden layer
+             activation_funcs: Activation functions
+             loss_function: Loss function for the training process
+             optimizer_name: Name of the optimizer algorithm
+             random_state: Seed for random number generators for reproducibility
+             max_iter: Maximum number of training iterations
+             batch_size: Number of samples per batch during training
+             valid_size: Fraction of training data used for validation
+             lr: Learning rate for the optimizer
+             visual: Boolean indicating if training visualization is to be shown
+             visual_interval: Interval at which training visualization is updated
+             save: Indicates if the training figure should be saved
+             gpu: Specifies GPU configuration for training
+             interval: Interval of screen output during training
+             scheduler: Learning rate scheduler
+             l1_reg: L1 regularization term
+             l2_reg: L2 regularization term
         """
 
         super(MLPRegressor, self).__init__()
@@ -120,7 +133,11 @@ class MLPRegressor(BaseModel):
         random_seed(self.random_state)
 
     def select_device(self, gpu):
-        """Selects the training device based on the 'gpu' parameter."""
+        r"""Selects the training device based on the 'gpu' parameter.
+
+        Args:
+            gpu: GPU ID.
+        """
         # If GPU is not specified, use CPU for training
         if gpu is None:
             return torch.device("cpu")
@@ -139,8 +156,18 @@ class MLPRegressor(BaseModel):
         else:
             raise ValueError("Invalid 'gpu' parameter. It should be None, an integer, or a list/tuple of integers.")
 
-    # Constructs the neural network model based on the specified architecture
     def build_model(self, input_dim, output_dim):
+        r"""Constructs the neural network model based on the specified architecture.
+
+        Args:
+            input_dim: The input dimension of the network.
+            output_dim: The output dimension of the network.
+
+
+        Returns:
+            A fully connected network architecture.
+        """
+
         layers = []
         last_dim = input_dim
         # Iterate over the list to create each layer in the neural network model
@@ -156,6 +183,12 @@ class MLPRegressor(BaseModel):
         return nn.Sequential(*layers)
 
     def prepare_data(self, X, y):
+        r"""Prepares the input data and splits it into training and validation sets.
+
+        Args:
+            X (torch.Tensor or numpy ndarray): Training data.
+            y (torch.Tensor or numpy ndarray): Label data.
+        """
         # Check and set the dimensions of the input data
         if not isinstance(X, np.ndarray):
             raise ValueError("X should be a NumPy array.")
@@ -186,6 +219,12 @@ class MLPRegressor(BaseModel):
         self.validloader = DataLoader(validset, batch_size=self.batch_size, shuffle=True)
 
     def fit(self, X, y):
+        r"""Train the network with training data.
+
+        Args:
+            X (torch.Tensor or numpy ndarray): Training data.
+            y (torch.Tensor or numpy ndarray): Label data.
+        """
         # Prepare the data by performing any necessary preprocessing.
         self.prepare_data(X, y)
 
@@ -272,8 +311,15 @@ class MLPRegressor(BaseModel):
         if self.save_fig:
             self.plot_progress(loss=self.losses, savefig=self.save_fig)
 
-    # Evaluate the network using validation set
     def evaluate(self, dataloader):
+        r"""Evaluate the network using validation set.
+
+        Args:
+            dataloader: Data for evaluation.
+
+        Returns:
+            accuracy
+        """
         # Set the network to evaluation mode
         self.net.eval()
         total_loss = 0.0
@@ -289,8 +335,15 @@ class MLPRegressor(BaseModel):
         # Return the average loss over the batches
         return total_loss / len(dataloader)
 
-    # Use a trained model to make predictions.
     def predict(self, X):
+        r"""Use a trained model to make predictions.
+
+        Args:
+            X (torch.Tensor): Data that needs to be predicted.
+
+        Returns:
+            Predicted value
+        """
         # Convert the input to a PyTorch tensor if it is not one already
         if not isinstance(X, torch.Tensor):
             X = torch.Tensor(X)
@@ -315,6 +368,15 @@ class MLPRegressor(BaseModel):
         return predictions
 
     def score(self, X, y):
+        r"""Evaluate the score of the model.
+
+        Args:
+            X (torch.Tensor or numpy ndarray): Training data.
+            y (torch.Tensor or numpy ndarray): Label data.
+
+        Returns:
+            accuracy
+        """
         # Convert X to a PyTorch float tensor if it is not one already
         if not isinstance(X, torch.Tensor):
             X = torch.tensor(X, dtype=torch.float32)

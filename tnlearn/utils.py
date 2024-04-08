@@ -1,3 +1,17 @@
+# Copyright 2024 Meng WANG. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 """
 Program name: PyTorch Utilities for tnlearn
 Purpose description: This utility script is designed to streamline various machine
@@ -8,8 +22,6 @@ Purpose description: This utility script is designed to streamline various machi
                      plotting training progress in terms of loss and accuracy. By providing
                      these utilities, tnlearn enhances the consistency and ease of
                      managing training workflows and evaluating model performance.
-Last revision date: February 23, 2024
-Known Issues: None identified at the time of the last revision.
 Note: Assumes that all the dependencies, especially PyTorch, NumPy, and Matplotlib,
       are installed and properly configured.
 """
@@ -24,8 +36,12 @@ import matplotlib.pyplot as plt
 from IPython.display import clear_output
 
 
-# Set the random seed for reproducibility of experiments
 def random_seed(seed):
+    r"""Set the random seed for reproducibility of experiments.
+
+    Args:
+        seed: Random seed.
+    """
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -35,8 +51,8 @@ def random_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-# Dataset class to handle data pairs
 class MyData(Dataset):
+    r"""Dataset class to handle data pairs."""
     def __init__(self, pics, labels):
         self.pics = pics
         self.labels = labels
@@ -55,9 +71,16 @@ class MyData(Dataset):
         return torch.Tensor([self.pics]), torch.Tensor(self.labels)
 
 
-# Get the corresponding PyTorch activation function by name
 def get_activation_function(name):
-    """Return the corresponding PyTorch activation function from a string name."""
+    r"""Get the corresponding PyTorch activation function by name.
+
+    Args:
+        name: A string name of the activation function.
+
+    Returns:
+        The corresponding PyTorch activation function.
+    """
+
     activations = {
         'relu': nn.ReLU(),
         'leakyrelu': nn.LeakyReLU(),
@@ -70,9 +93,15 @@ def get_activation_function(name):
     return activations.get(name.lower(), nn.ReLU())
 
 
-# Get the corresponding PyTorch loss function by name
 def get_loss_function(name):
-    """Map of loss function names to their torch.nn equivalents."""
+    r"""Get the corresponding PyTorch loss function by name.
+
+    Args:
+        name: A string name of the loss function.
+
+    Returns:
+        The corresponding PyTorch loss function
+    """
     activations = {
         'mse': nn.MSELoss(),
         'l1': nn.L1Loss(),
@@ -85,16 +114,17 @@ def get_loss_function(name):
     return activations.get(name.lower(), nn.MSELoss())
 
 
-# Get the corresponding PyTorch optimizer by name
 def get_optimizer(name, parameters, lr=0.001, **kwargs):
-    """
-    Return the corresponding PyTorch optimizer given its string name.
+    r"""Get the corresponding PyTorch optimizer by name.
 
-    :param name: The name of the optimizer (e.g., 'adam', 'sgd')
-    :param parameters: The parameters of the model to optimize.
-    :param lr: Learning rate
-    :param kwargs: Other arguments specific to the optimizer
-    :return: An instance of the requested optimizer.
+    Args:
+        name: The name of the optimizer (e.g., 'adam', 'sgd').
+        parameters: The parameters of the model to optimize.
+        lr: Learning rate.
+        kwargs: Other arguments specific to the optimizer.
+
+    Returns:
+        An instance of the requested optimizer.
     """
 
     optimizers = {
@@ -109,8 +139,8 @@ def get_optimizer(name, parameters, lr=0.001, **kwargs):
     return optimizers.get(name.lower(), optim.Adam(parameters, lr=lr))
 
 
-# Class for plotting and visualizing training progress
 class Visualization:
+    r"""Class for plotting and visualizing training progress."""
     def __init__(self, save_fig=False, save_path='train_plot.png'):
         self.save_fig = save_fig  # Determine whether to save the figure
         self.save_path = save_path  # Path where the figure will be saved
@@ -119,7 +149,14 @@ class Visualization:
         plt.ion()  # Turn interactive plotting on
 
     def update(self, epoch, loss, accuracy=None, savefig=False):
-        # Update the plots for loss and accuracy across epochs
+        r"""Update the plots for loss and accuracy across epochs.
+
+        Args:
+            epoch: Epochs during training.
+            loss: Loss value during training.
+            accuracy: Accuracy value during training.
+            savefig (Boolean, default: False): Save the visualization figure.
+        """
 
         clear_output(wait=True)  # Clear the output of the current cell showing the plot
 

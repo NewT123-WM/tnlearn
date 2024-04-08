@@ -4,10 +4,8 @@ Purpose description: This program is for unit testing the VecSymRegressor class,
                      of its evaluation, simplification, and random weight generation methods. The VecSymRegressor
                      class utilizes evolutionary algorithms for regression tasks, and this testing suite
                      aims to verify functional integrity across its methods using predefined conditions and parameters.
-Last revision date: February 20, 2024
 Tests: This test suite covers the main functional aspects of the VecSymRegressor class using simple assertions
        and is not reliant on synthetic datasets from sklearn's make_regression.
-Known Issues: None reported as of the last revision date.
 Note: This testing program assumes the correct implementation of a hypothetical VecSymRegressor class which is
       not part of the sklearn library. It specifically checks that the methods behave as expected when
       called with reasonable inputs.

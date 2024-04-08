@@ -22,7 +22,6 @@ Purpose description: This script demonstrates the utility and fundamental operat
                      training, and calculation of performance metrics.
                      It is used here as a base from which specialized models like MLPRegressor
                      and MLPClassifier are derived.
-Known Issues: None identified at the time of the last revision.
 Note: This overview assumes that the Visualization class and all dependencies of `tnlearn`
       are properly installed and functional. Torch is utilized for model operations, while
       performance metrics are computed using the sklearn library.
@@ -40,13 +39,18 @@ class BaseModel:
         r"""Initialization method of the BaseModel class that sets up a visualization tool"""
         self.visualization = Visualization()
 
-    # Method to update the progress plot during training
     def plot_progress(self, loss, savefig=False, accuracy=None):
+        r"""Method to update the progress plot during training."""
         # Update visualization with the current epoch, loss, and optional accuracy
         self.visualization.update(self.current_epoch, loss, accuracy, savefig=savefig)
 
     def save(self, path, filename):
-        r"""Save the current model to the specified path with the given filename."""
+        r"""Save the current model to the specified path with the given filename.
+
+        Args:
+            path: The path where the model weights are saved.
+            filename: Name of the weight files.
+        """
         if not os.path.exists(path):
             os.makedirs(path)
         full_path = os.path.join(path, filename)
@@ -55,7 +59,14 @@ class BaseModel:
         print(f"Model saved to {full_path}")
 
     def load(self, path, filename, input_dim, output_dim):
-        """Load a model from the specified path with the given filename."""
+        r"""Load a model from the specified path with the given filename.
+
+        Args:
+            path: The location of the trained model.
+            filename: File name of the trained model.
+            input_dim: The input dimension of the network.
+            output_dim: The output dimension of the network.
+        """
         full_path = os.path.join(path, filename)
         # Check if the specified model file exists
         if not os.path.isfile(full_path):
@@ -67,20 +78,19 @@ class BaseModel:
         self.net.eval()  # Set the model to evaluation mode after loading weights
         print(f"Model loaded from {full_path}")
 
-    # The following methods calculate different evaluation metrics
     def calculate_auc(self, y_true, y_pred):
-        # Calculate the Area Under the Receiver Operating Characteristic Curve (ROC AUC)
+        r"""Calculate the Area Under the Receiver Operating Characteristic Curve (ROC AUC)"""
         return roc_auc_score(y_true, y_pred)
 
     def calculate_f1_score(self, y_true, y_pred):
-        # Calculate the F1 score, a weighted average of precision and recall
+        r"""Calculate the F1 score, a weighted average of precision and recall"""
         return f1_score(y_true, y_pred)
 
     def calculate_recall(self, y_true, y_pred):
-        # Calculate the recall, the ability of the classifier to find all the positive samples
+        r"""Calculate the recall, the ability of the classifier to find all the positive samples"""
         return recall_score(y_true, y_pred)
 
     def calculate_precision(self, y_true, y_pred):
-        # Calculate the precision, the ability of the classifier not to label a sample
-        # as positive if it is negative
+        r"""Calculate the precision, the ability of the classifier not to label a sample
+         as positive if it is negative"""
         return precision_score(y_true, y_pred)

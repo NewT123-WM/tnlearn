@@ -23,7 +23,6 @@ Purpose description: This script implements the class MLPClassifier, which exten
                      ensuring efficient computation. The class covers essential methods
                      for model training, evaluation, and prediction, making it a flexible
                      tool for supervised learning tasks in PyTorch.
-Known Issues: None identified at the time of the last revision.
 Note: This overview assumes that all required modules and dependencies are installed,
       including PyTorch, and that the ‘get_activation_function’ and
       ‘get_loss_function’ utilities, as well as the ‘random_seed’ function,
@@ -66,8 +65,7 @@ class MLPClassifier(BaseModel):
                  l1_reg=None,
                  l2_reg=None,
                  ):
-        r"""Construct MLPClassifier with nonlinear neurons.
-
+        r"""Construct MLPClassifier with task-based neurons.
 
     Args:
          neurons: Neuronal expression
@@ -131,7 +129,11 @@ class MLPClassifier(BaseModel):
         random_seed(self.random_state)
 
     def select_device(self, gpu):
-        r"""Selects the training device based on the 'gpu' parameter."""
+        r"""Selects the training device based on the 'gpu' parameter.
+
+        Args:
+            gpu: GPU ID.
+        """
         # If gpu is None, return CPU as device
         if gpu is None:
             return torch.device("cpu")

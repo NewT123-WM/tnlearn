@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""A Python package that uses task-based neurons to build neural networks."""
+""" A Python package that uses task-based neurons to build neural networks. """
 
 from tnlearn.regressor import VecSymRegressor
 from tnlearn.mlpregressor import MLPRegressor

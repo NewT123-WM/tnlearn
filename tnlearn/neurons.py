@@ -1,3 +1,18 @@
+# Copyright 2024 Meng WANG. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 """
 Program name: Custom Neuron Layer Implementation
 Purpose description: This module implements the `CustomNeuronLayer` class in the 'tnlearn'
@@ -6,8 +21,6 @@ Purpose description: This module implements the `CustomNeuronLayer` class in the
                      of neural networks with symbolic neurons for both regression and
                      classification tasks. It inherits from PyTorch's nn.Module, leveraging
                      deep learning frameworks for gradient-based optimization.
-Last revision date: February 27, 2024
-Known Issues: None identified at the time of the last revision.
 Note: This overview presupposes that the user has basic understanding of deep learning
       concepts and is facile with PyTorch's core principles and operations.
 """
@@ -22,9 +35,17 @@ from torch.nn import functional as F
 
 
 class CustomNeuronLayer(nn.Module):
-    # Initialize the custom layer with given input and output features
-    # and the symbolic expression that defines neuron functionality
+    r"""Build a neural network model of a custom architecture."""
     def __init__(self, in_features: int, out_features: int, symbolic_expression: str, bias: bool = True):
+        r"""Initialize the custom layer with given input and output features
+        and the symbolic expression that defines neuron functionality.
+
+        Args:
+            in_features:
+            out_features:
+            symbolic_expression:
+            bias:
+        """
         super(CustomNeuronLayer, self).__init__()
 
         # Number of input and output features
@@ -50,8 +71,8 @@ class CustomNeuronLayer(nn.Module):
         # Reset parameters for the initialized layer
         self.reset_parameters()
 
-    # Resets the layer's parameters by initializing weights and bias
     def reset_parameters(self) -> None:
+        r"""Resets the layer's parameters by initializing weights and bias."""
 
         # Initialize weights using Kaiming uniform initialization
         for i in range(self.number):
@@ -63,8 +84,8 @@ class CustomNeuronLayer(nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             init.uniform_(self.bias, -bound, bound)
 
-    # Extract data terms from the symbolic expression
     def xdata(self):
+        r"""Extract data terms from the symbolic expression."""
         temp = self.neuron.replace(' ', '')
         temp = re.split('\+|-', temp)
         xx = []
@@ -79,8 +100,12 @@ class CustomNeuronLayer(nn.Module):
                 pass
         return xx
 
-    # Defines the forward pass using the symbolic expression
     def forward(self, x):
+        r"""Defines the forward pass using the symbolic expression.
+
+        Returns:
+            The calculation of a single neuron.
+        """
         # Collect variable data blocks from the symbolic expression
         xlist = self.xdata()
         su = 0

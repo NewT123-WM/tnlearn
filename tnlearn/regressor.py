@@ -1,3 +1,18 @@
+# Copyright 2024 Meng WANG. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 """
 Program name: Vectorized Symbolic Regression with VecSymRegressor Class
 Purpose description: This script implements the symbolic regression algorithm through
@@ -5,8 +20,6 @@ Purpose description: This script implements the symbolic regression algorithm th
                      to fit given data. The class provides methods for generating random expressions,
                      evaluating their fitness, and evolving expressions through mutation and crossover.
                      It aims to find the best-fitting mathematical model for a given dataset.
-Last revision date: February 27, 2024
-Known Issues: None identified at the time of the last revision.
 Note: This overview assumes that the VecSymRegressor class and all its dependencies are properly installed
       and functional.
 """
@@ -32,17 +45,17 @@ class VecSymRegressor:
                  save=False,
                  operations=None):
 
-        """
-        # Set default values for various parameters if not provided
-        # Parameters:
-        - random_state: Seed for random number generation
-        - pop_size: Population size for genetic algorithm
-        - max_generations: Maximum generations for genetic algorithm
-        - tournament_size: Size of tournament selection
-        - x_pct: Probability of selecting a variable node during random program generation
-        - xover_pct: Crossover probability during offspring generation
-        - save: Flag for saving
-        - operations: Set of operations to be used in program generation
+        r"""Use vectorized symbolic regression algorithm to generate neuronal expression.
+
+        Args:
+            random_state: Seed for random number generation
+            pop_size: Population size for genetic algorithm
+            max_generations: Maximum generations for genetic algorithm
+            tournament_size: Size of tournament selection
+            x_pct: Probability of selecting a variable node during random program generation
+            xover_pct: Crossover probability during offspring generation
+            save: Flag for saving
+            operations: Set of operations to be used in program generation
         """
 
         random_seed(random_state)
@@ -67,22 +80,45 @@ class VecSymRegressor:
             {"func": operator.neg, "arg_count": 1, "format_str": "-({})"},
         )
 
-    # Method to render a program based on a given tree structure
-    # Recursively converts the tree into a string expression
     def render_prog(self, node):
+        r"""Method to render a program based on a given tree structure.
+             Recursively converts the tree into a string expression.
+
+        Args:
+            node: Node of the tree structure.
+
+        Returns:
+            A string expression.
+        """
 
         if "children" not in node:
             return node["feature_name"]
         return node["format_str"].format(*[self.render_prog(c) for c in node["children"]])
 
-    # Method to simplify a tree-based expression into a string
-    # Uses sympify and expand functions to simplify and convert the expression
     def simp(self, tree):
+        r"""Method to simplify a tree-based expression into a string.
+            Uses sympify and expand functions to simplify and convert the expression.
+
+        Args:
+            tree: A tree structure.
+
+        Returns:
+            A simplified tree-based string expression.
+        """
         return str(expand(sympify(self.render_prog(tree)))).replace("*", "@").replace('@@', '**')
 
-    # Method to evaluate an expression using input data
-    # Parses the expression and evaluates it using input x_data
     def evaluate(self, expr, x_data):
+        r"""Method to evaluate an expression using input data.
+
+        Args:
+            expr: Symbolic expression.
+            x_data: Input data for evaluation based on the symbolic expressions.
+
+        Returns:
+            Transformed symbolic expression.
+            The evaluation value of the x_data.
+        """
+
         x = x_data
         temp = re.split(' ', expr)
         for n, i_exp in enumerate(temp):
@@ -95,15 +131,17 @@ class VecSymRegressor:
         ex = ''.join(temp)
         return expr, eval(ex)
 
-    # Static method to generate a random weight within a specified range
     @staticmethod
     def rand_w():
+        r"""Generate a random weight within a specified range."""
         return str(round(np.random.uniform(-1, 1), 2))
-        # return str(np.random.randint(low=-20, high=20))
 
-    # Method to generate a random program/tree structure
-    # Uses recursion to generate a random tree based on specified depth and operations
     def random_prog(self, depth=0):
+        r"""Method to generate a random program/tree structure.
+
+        Returns:
+            A symbol tree structure.
+        """
         n_d = depth
         op = self.operations[randint(0, len(self.operations) - 1)]
         if randint(0, 10) >= depth and n_d <= 6:
@@ -116,9 +154,17 @@ class VecSymRegressor:
         else:
             return {"feature_name": 'x'} if random() < self.x_pct else {"feature_name": self.rand_w()}
 
-    # Method to select a random node within a given tree structure
-    # Uses recursion to randomly select a node, favoring nodes near the root
     def select_random_node(self, selected, parent, depth):
+        r"""Method to select a random node within a given tree structure.
+
+        Args:
+            selected: The selected node.
+            parent: The parent node.
+            depth: The depth of the tree structure.
+
+        Returns:
+            A random node.
+        """
         if "children" not in selected:
             return parent
             # favor nodes near the root
@@ -129,18 +175,32 @@ class VecSymRegressor:
             selected["children"][randint(0, child_count - 1)],
             selected, depth + 1)
 
-    # Method to perform mutation on a selected tree structure
-    # Deep copies the selected tree and mutates a random node within it
-    def do_mutate(self, selected):  # 修改成实例方法
+    def do_mutate(self, selected):
+        r"""Method to perform mutation on a selected tree structure.
+
+        Args:
+            selected: The selected offspring.
+
+        Returns:
+            Offspring produced by mutation.
+        """
         offspring = deepcopy(selected)
         mutate_point = self.select_random_node(offspring, None, 0)
         child_count = len(mutate_point["children"])
         mutate_point["children"][randint(0, child_count - 1)] = self.random_prog(0)
         return offspring
 
-    # Method to perform crossover between two selected tree structures
-    # Deep copies the first selected tree and swaps a random node with a node from the second selected tree
     def do_xover(self, selected1, selected2):
+        r"""Method to perform crossover between two selected tree structures.
+
+        Args:
+            selected1: The selected tree structures 1.
+            selected2: The selected tree structures 2.
+
+        Returns:
+            Offspring produced by crossover.
+        """
+
         offspring = deepcopy(selected1)
         xover_point1 = self.select_random_node(offspring, None, 0)
         xover_point2 = self.select_random_node(selected2, None, 0)
@@ -148,9 +208,16 @@ class VecSymRegressor:
         xover_point1["children"][randint(0, child_count - 1)] = xover_point2
         return offspring
 
-    # Method to select a random parent from a population based on fitness
-    # Uses tournament selection to select random members and returns the one with the lowest fitness
     def get_random_parent(self, popu, fitne):
+        r"""Method to select a random parent from a population based on fitness.
+
+        Args:
+            popu: Total population.
+            fitne: Fitness.
+
+        Returns:
+            The one with the lowest fitness.
+        """
         # randomly select population members for the tournament
         tournament_members = [
             randint(0, self.pop_size - 1) for _ in range(self.tournament_size)]
@@ -158,9 +225,16 @@ class VecSymRegressor:
         member_fitness = [(fitne[i], popu[i]) for i in tournament_members]
         return min(member_fitness, key=lambda x: x[0])[1]
 
-    # Method to generate offspring based on the given population and fitness
-    # Randomly selects parents and performs crossover or mutation based on probabilities
     def get_offspring(self, popula, ftns):
+        r"""Method to generate offspring based on the given population and fitness.
+
+        Args:
+            popula: The given population.
+            ftns: The given fitness.
+
+        Returns:
+            The offspring produced by crossover and mutation according to a certain probability.
+        """
         tempt = random()
         parent1 = self.get_random_parent(popula, ftns)
         if tempt < self.xover_pct:
@@ -171,16 +245,31 @@ class VecSymRegressor:
         else:
             return parent1
 
-    # Method to count the number of nodes in a given tree structure
-    # Recursively counts the nodes within the tree
     def node_count(self, x):
+        r"""Method to count the number of nodes in a given tree structure.
+
+        Args:
+            x: A symbol tree structure
+
+        Returns:
+            The number of nodes in a given tree structure
+        """
         if "children" not in x:
             return 1
         return sum([self.node_count(c) for c in x["children"]])
 
-    # Method to compute fitness based on the function, predictions, and labels
     # Calculates mean squared error (MSE) as fitness metric
     def compute_fitness(self, func, pred, label):
+        r"""Method to compute fitness based on the function, predictions, and labels.
+
+        Args:
+            func: Symbolic expression.
+            pred: A predicted value calculated from a symbolic expression.
+            label: Label for input data.
+
+        Returns:
+            Mean squared error.
+        """
         m = func.count('x')
         if m == 0 or m == 1:
             return float("inf")
@@ -188,8 +277,14 @@ class VecSymRegressor:
             mse = np.mean(np.square(pred - label))
             return mse
 
-    # The symbolic regression algorithm is performed to fit the data.
     def fit(self, X, y):
+        r"""The symbolic regression algorithm is performed to fit the data.
+
+        Args:
+            X: Input data.
+            y: Label.
+        """
+
         X = X.T
         y = y.T
         self.population = [self.random_prog() for _ in range(self.pop_size)]
@@ -249,7 +344,6 @@ class VecSymRegressor:
 
         # If saving, write the best program to the log file and close it
         if self.save:
-            # 记录最终的最优解
             file.write("Best score: %f\n" % self.best_score)
             file.write("Best program: %s\n" % self.best_program)
             file.close()
