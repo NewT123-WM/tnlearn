@@ -7,8 +7,6 @@ Purpose description: This program conducts a series of unit tests on a mock deep
                      complex model structures during testing of the BaseModel functionality.
 Tests: The suite includes tests for file operations, scoring metrics validation, and visualization
        using synthetic data to ensure each method performs as expected.
-Known Issues: The mock design assumes several base class methods and properties like `save`, `load`,
-              and scoring functions are already implemented and working correctly.
 Note: To execute these tests, PyTorch must be properly installed and configured. The testing framework
       used is 'unittest', a standard Python testing library.
 """
