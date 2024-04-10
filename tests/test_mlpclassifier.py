@@ -8,9 +8,6 @@ Purpose description: This program is designed to test the functionality of the M
 Tests: The script has undergone testing with synthetic datasets created by 'make_classification' from sklearn.
 Note: This script is based on the assumption that tnlearn and sklearn libraries are installed and
       that the relevant classes and functions are correctly implemented in those libraries.
-Author: Refer to 'setup.py' file
-Version: Corresponds to the version in 'setup.py'
-Dependencies: tnlearn, sklearn, any other required modules are listed in 'requirements.txt' or 'setup.py'
 """
 
 from tnlearn import MLPClassifier
