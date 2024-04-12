@@ -1,11 +1,14 @@
 from setuptools import setup, find_packages
+import tnlearn
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+VERSION = tnlearn.__version__
+
 setup(
     name="tnlearn",
-    version="0.1.0",
+    version=VERSION,
     author="Meng WANG",
     author_email="wangmeng22@stu.hit.edu.cn",
     description="A Python package that uses task-based neurons to build neural networks.",
