@@ -37,10 +37,10 @@ from sklearn.model_selection import train_test_split
 import torch.optim.lr_scheduler as lr_scheduler
 from tnlearn.utils import MyData
 from tnlearn.neurons import CustomNeuronLayer
-from tnlearn.utils import random_seed
-from tnlearn.utils import get_activation_function
-from tnlearn.utils import get_loss_function
-from tnlearn.utils import get_optimizer
+from tnlearn.seeds import random_seed
+from tnlearn.activation_function import get_activation_function
+from tnlearn.loss_function import get_loss_function
+from tnlearn.optimizer import get_optimizer
 from tnlearn.base import BaseModel
 
 

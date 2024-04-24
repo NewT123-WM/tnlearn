@@ -14,25 +14,20 @@
 # ==============================================================================
 
 import torch
-from torch.utils.data import Dataset
+import numpy as np
+import random
 
 
-class MyData(Dataset):
-    r"""Dataset class to handle data pairs."""
+def random_seed(seed):
+    r"""Set the random seed for reproducibility of experiments.
 
-    def __init__(self, pics, labels):
-        self.pics = pics
-        self.labels = labels
-
-    def __getitem__(self, index):
-        # Fetch a single item by index
-        assert index < len(self.pics)
-        return torch.Tensor(self.pics[index]), self.labels[index]
-
-    def __len__(self):
-        # Return the size of the dataset
-        return len(self.pics)
-
-    def get_tensors(self):
-        # Return all images and labels as tensor batches
-        return torch.Tensor([self.pics]), torch.Tensor(self.labels)
+    Args:
+        seed: Random seed.
+    """
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True

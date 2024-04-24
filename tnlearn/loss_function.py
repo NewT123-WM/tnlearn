@@ -13,26 +13,25 @@
 # limitations under the License.
 # ==============================================================================
 
-import torch
-from torch.utils.data import Dataset
+from torch import nn
 
 
-class MyData(Dataset):
-    r"""Dataset class to handle data pairs."""
+def get_loss_function(name):
+    r"""Get the corresponding PyTorch loss function by name.
 
-    def __init__(self, pics, labels):
-        self.pics = pics
-        self.labels = labels
+    Args:
+        name: A string name of the loss function.
 
-    def __getitem__(self, index):
-        # Fetch a single item by index
-        assert index < len(self.pics)
-        return torch.Tensor(self.pics[index]), self.labels[index]
+    Returns:
+        The corresponding PyTorch loss function
+    """
+    activations = {
+        'mse': nn.MSELoss(),
+        'l1': nn.L1Loss(),
+        'crossentropy': nn.CrossEntropyLoss(),
+        'bce': nn.BCELoss(),
 
-    def __len__(self):
-        # Return the size of the dataset
-        return len(self.pics)
-
-    def get_tensors(self):
-        # Return all images and labels as tensor batches
-        return torch.Tensor([self.pics]), torch.Tensor(self.labels)
+        # Add more activation functions if needed
+    }
+    # Return the requested loss function or MSELoss as default
+    return activations.get(name.lower(), nn.MSELoss())

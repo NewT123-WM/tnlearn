@@ -31,7 +31,7 @@ from random import randint, random, shuffle
 from copy import deepcopy
 import re
 from tqdm import tqdm
-from tnlearn.utils import random_seed
+from tnlearn.seeds import random_seed
 
 
 class VecSymRegressor:

@@ -13,26 +13,26 @@
 # limitations under the License.
 # ==============================================================================
 
-import torch
-from torch.utils.data import Dataset
+from torch import nn
 
 
-class MyData(Dataset):
-    r"""Dataset class to handle data pairs."""
+def get_activation_function(name):
+    r"""Get the corresponding PyTorch activation function by name.
 
-    def __init__(self, pics, labels):
-        self.pics = pics
-        self.labels = labels
+    Args:
+        name: A string name of the activation function.
 
-    def __getitem__(self, index):
-        # Fetch a single item by index
-        assert index < len(self.pics)
-        return torch.Tensor(self.pics[index]), self.labels[index]
+    Returns:
+        The corresponding PyTorch activation function.
+    """
 
-    def __len__(self):
-        # Return the size of the dataset
-        return len(self.pics)
-
-    def get_tensors(self):
-        # Return all images and labels as tensor batches
-        return torch.Tensor([self.pics]), torch.Tensor(self.labels)
+    activations = {
+        'relu': nn.ReLU(),
+        'leakyrelu': nn.LeakyReLU(),
+        'sigmoid': nn.Sigmoid(),
+        'tanh': nn.Tanh(),
+        'softmax': nn.Softmax(dim=-1),  # You could need to specify the dimension
+        # Add more activation functions if needed
+    }
+    # Return the requested activation function or ReLU as default
+    return activations.get(name.lower(), nn.ReLU())

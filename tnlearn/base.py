@@ -29,7 +29,7 @@ Note: This overview assumes that the Visualization class and all dependencies of
 
 import os
 import torch
-from .utils import Visualization
+from tnlearn.visualize import Visualization
 from sklearn.metrics import roc_auc_score, f1_score, recall_score, precision_score
 
 
