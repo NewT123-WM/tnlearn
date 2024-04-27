@@ -59,7 +59,7 @@ class MLPRegressor(BaseModel):
                  max_iter=300,
                  batch_size=128,
                  valid_size=0.2,
-                 lr=0.01,
+                 lr=0.001,
                  visual=False,
                  visual_interval=100,
                  save=False,
@@ -123,7 +123,7 @@ class MLPRegressor(BaseModel):
         else:
             self.layers_list = layers_list
 
-        # Setup the activation functions for layers if provided, otherwise use ReLU
+        # Set up the activation functions for layers if provided, otherwise use ReLU
         self.activation_funcs = get_activation_function(activation_funcs) if activation_funcs else nn.ReLU()
 
         # Get the loss function; default to MSE (Mean Squared Error) if not provided
@@ -212,11 +212,15 @@ class MLPRegressor(BaseModel):
                                                               random_state=self.random_state)
         # Create dataset objects to be used with DataLoaders
         trainset = MyData(X_train, y_train)
+
         # DataLoader for the training set allows iterating over the data in batches and shuffling
         self.trainloader = DataLoader(trainset, batch_size=self.batch_size, shuffle=True)
         validset = MyData(X_valid, y_valid)
         # DataLoader for the validation set, also in batches
         self.validloader = DataLoader(validset, batch_size=self.batch_size, shuffle=True)
+
+        self.train_number = X_train.shape[0]
+        self.valid_number = X_valid.shape[0]
 
     def fit(self, X, y):
         r"""Train the network with training data.
@@ -259,6 +263,7 @@ class MLPRegressor(BaseModel):
 
         # Set the network to training mode.
         self.net.train()
+        print(self.net)
         for epoch in range(self.max_iter):
             self.current_epoch = epoch + 1  # Update the current epoch counter.
 
@@ -285,7 +290,7 @@ class MLPRegressor(BaseModel):
                 loss.backward()
                 self.optimizer.step()
                 running_loss += loss.item()
-            running_loss /= len(self.trainloader)
+            running_loss /= self.train_number
 
             # Step the scheduler to update the learning rate if applicable.
             if self.scheduler is not None:
@@ -333,7 +338,7 @@ class MLPRegressor(BaseModel):
                 total_loss += loss.item()
 
         # Return the average loss over the batches
-        return total_loss / len(dataloader)
+        return total_loss / self.valid_number
 
     def predict(self, X):
         r"""Use a trained model to make predictions.
@@ -401,7 +406,7 @@ class MLPRegressor(BaseModel):
                 total_loss += loss.item() * inputs.size(0)
 
         # Divide the total loss by the number of samples to get the average loss
-        total_loss /= len(loader)
+        total_loss /= X.shape[0]
 
         print(f'Mean Squared Error: {total_loss:.4f}')
         # Return the mean squared error

@@ -26,13 +26,12 @@ clf = MLPRegressor(
     #            'gamma': 0.2},
     l1_reg=False,
     l2_reg=False,
-
 )
 
 clf.fit(X_train, y_train)
 # a = clf.predict(X_test)
 # clf.score(X_test, y_test)
-# #
+
 # clf.save(path='my_model_dir', filename='mlp_regressor.pth')
 # clf.load(path='my_model_dir', filename='mlp_regressor.pth', input_dim=20, output_dim=1)
 # clf.fit(X_train, y_train)

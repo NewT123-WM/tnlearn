@@ -5,10 +5,11 @@ from sklearn.model_selection import train_test_split
 X, y = make_classification(n_samples=200, random_state=1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=1)
 
-layers_list = [10, 10, 10]
+layers_list = [50, 80, 10, 10]
 clf = MLPClassifier(
-    layers_list=None,
+    layers_list=layers_list,
     neurons='2@x**2',
+    # neurons='x',
     activation_funcs='sigmoid',
     loss_function=None,
     random_state=1,
@@ -30,7 +31,7 @@ clf = MLPClassifier(
 
 clf.fit(X_train, y_train)
 # a = clf.predict(X_test)
-# clf.score(X_test, y_test)
+clf.score(X_test, y_test)
 # #
 # clf.save(path='my_model_dir', filename='mlp_classifier.pth')
 # clf.load(path='my_model_dir', filename='mlp_classifier.pth',

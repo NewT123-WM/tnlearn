@@ -40,6 +40,7 @@ class VecSymRegressor:
                  pop_size=5000,
                  max_generations=20,
                  tournament_size=10,
+                 coefficient_range=None,
                  x_pct=0.7,
                  xover_pct=0.3,
                  save=False,
@@ -48,14 +49,15 @@ class VecSymRegressor:
         r"""Use vectorized symbolic regression algorithm to generate neuronal expression.
 
         Args:
-            random_state: Seed for random number generation
-            pop_size: Population size for genetic algorithm
-            max_generations: Maximum generations for genetic algorithm
-            tournament_size: Size of tournament selection
-            x_pct: Probability of selecting a variable node during random program generation
-            xover_pct: Crossover probability during offspring generation
-            save: Flag for saving
-            operations: Set of operations to be used in program generation
+            random_state (Int): Seed for random number generation
+            pop_size (Int): Population size for genetic algorithm
+            max_generations (Int): Maximum generations for genetic algorithm
+            tournament_size (Int): Size of tournament selection
+            coefficient_range (List): Random coefficient range
+            x_pct (Float): Probability of selecting a variable node during random program generation
+            xover_pct (Float): Crossover probability during offspring generation
+            save (Boolean): Flag for saving
+            operations (Dict): Set of operations to be used in program generation
         """
 
         random_seed(random_state)
@@ -63,6 +65,7 @@ class VecSymRegressor:
         self.pop_size = pop_size
         self.max_generations = max_generations
         self.tournament_size = tournament_size or round(pop_size * 0.03)
+
         self.x_pct = x_pct
         self.xover_pct = xover_pct
         self.save = save
@@ -71,6 +74,11 @@ class VecSymRegressor:
         self.global_best = float("inf")
         self.best_prog = None
         self.neuron = None
+
+        if coefficient_range is None:
+            self.coefficient_range = [-1, 1]
+        else:
+            self.coefficient_range = coefficient_range
 
         # Defining mathematical operations for the algorithm, if not provided
         self.operations = operations or (
@@ -131,10 +139,10 @@ class VecSymRegressor:
         ex = ''.join(temp)
         return expr, eval(ex)
 
-    @staticmethod
-    def rand_w():
-        r"""Generate a random weight within a specified range."""
-        return str(round(np.random.uniform(-1, 1), 2))
+    # @staticmethod
+    def rand_w(self):
+        r"""Generate a random coefficient within a specified range."""
+        return str(np.random.randint(low=self.coefficient_range[0], high=self.coefficient_range[1]))
 
     def random_prog(self, depth=0):
         r"""Method to generate a random program/tree structure.

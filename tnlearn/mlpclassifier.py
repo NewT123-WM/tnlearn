@@ -55,7 +55,7 @@ class MLPClassifier(BaseModel):
                  max_iter=300,
                  batch_size=128,
                  valid_size=0.2,
-                 lr=0.01,
+                 lr=0.001,
                  visual=False,
                  save=False,
                  visual_interval=100,
@@ -211,6 +211,9 @@ class MLPClassifier(BaseModel):
         validset = MyData(X_valid, y_valid)
         self.validloader = DataLoader(validset, batch_size=self.batch_size, shuffle=True)
 
+        self.train_number = X_train.shape[0]
+        self.valid_number = X_valid.shape[0]
+
     def fit(self, X, y):
         r"""Train the network with training data.
 
@@ -292,7 +295,7 @@ class MLPClassifier(BaseModel):
                 loss.backward()
                 self.optimizer.step()
                 running_loss += loss.item()
-            running_loss /= len(self.trainloader)
+            running_loss /= self.train_number
 
             # Update the learning rate at the end of each epoch if a scheduler is provided
             if self.scheduler is not None:
@@ -335,7 +338,6 @@ class MLPClassifier(BaseModel):
         # Set the network to evaluation mode
         self.net.eval()
         total_correct = 0
-        total_samples = 0
 
         # Disable gradient calculation
         with torch.no_grad():
@@ -347,10 +349,10 @@ class MLPClassifier(BaseModel):
                 # Get the predicted class
                 _, predicted = torch.max(outputs.data, 1)
                 # Update total samples and total correct predictions
-                total_samples += labels.size(0)
+
                 total_correct += (predicted == labels).sum().item()
         # Calculate accuracy
-        return total_correct / total_samples
+        return total_correct / self.valid_number
 
     def predict(self, X):
         r"""Use a trained model to make predictions.
