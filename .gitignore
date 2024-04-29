@@ -1,5 +1,5 @@
 tnlearn.egg-info/
 __pycache__/
 log.txt
-*.png
-my_model_dir/
+/examples/*.png
+/examples/my_model_dir/
