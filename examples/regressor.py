@@ -6,8 +6,10 @@ neuron = VecSymRegressor(random_state=100,
                          pop_size=500,
                          max_generations=20,
                          tournament_size=10,
+                         coefficient_range=[-1, 1],
                          x_pct=0.7,
                          xover_pct=0.3,
+                         save=False,
                          operations=None)
 
 with h5py.File('data/data1.h5', 'r') as f:
@@ -15,5 +17,4 @@ with h5py.File('data/data1.h5', 'r') as f:
     y = np.array(f['y'])
 
 neuron.fit(X, y)
-print('*' * 20)
 print(neuron.neuron)

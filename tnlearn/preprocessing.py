@@ -13,22 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-"""
-Program name: Data Preprocessing Utilities
-Purpose description: This script provides a robust and flexible DataPreprocessor class capable of
-                     handling both numerical and categorical data transformations. With features for
-                     standardizing or normalizing numerical features and encoding categorical features,
-                     this class is an essential utility for preparing raw data for machine learning model
-                     training. It consolidates preprocessing steps into a reusable framework, ensuring
-                     consistency in data transformations across different machine learning workflows.
-                     Users can customize the type of scalers and the feature range for normalization,
-                     as well as selectively apply transformations to subsets of features.
-Note: This class is designed to work seamlessly with the sklearn pipeline, assuming that the required
-      transformers from sklearn.preprocessing (such as StandardScaler, MinMaxScaler, and OneHotEncoder)
-      are properly installed and imported before using this DataPreprocessor class.
-"""
-
-
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
 

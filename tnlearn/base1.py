@@ -15,27 +15,26 @@
 
 import os
 import torch
-from torchinfo import summary
-from tnlearn.visualize import Visualization_Classification
+from tnlearn.visualize import Visualization_Regression
 from sklearn.metrics import roc_auc_score, f1_score, recall_score, precision_score
 
 
-class BaseModel:
-    r"""Basic module used to ensure the normal operation of MLPClassifier."""
+class BaseModel1:
+    r"""Basic module used to ensure the normal operation of MLPRegressor."""
 
     def __init__(self):
         r"""Initialization method of the BaseModel class that sets up a visualization tool"""
-        self.visualization_classification = Visualization_Classification()
+        self.visualization_regression = Visualization_Regression()
 
-    def plot_progress_classification(self, loss, accuracy):
+    def plot_progress_regression(self, loss):
         r"""Method to update the progress plot during training."""
         # Update visualization with the current epoch, loss, and optional accuracy
-        self.visualization_classification.update(self.current_epoch, loss, accuracy)
+        self.visualization_regression.update(self.current_epoch, loss)
 
-    def classification_savefigure(self, loss, accuracy, path):
+    def regression_savefigure(self, loss, path):
         r"""Method to update the progress plot during training."""
         # Update visualization with the current epoch, loss, and optional accuracy
-        self.visualization_classification.savefigure(loss, accuracy, path)
+        self.visualization_regression.savefigure(loss, path)
 
     def save(self, path, filename):
         r"""Save the current model to the specified path with the given filename.

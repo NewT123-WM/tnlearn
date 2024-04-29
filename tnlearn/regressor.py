@@ -13,17 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-"""
-Program name: Vectorized Symbolic Regression with VecSymRegressor Class
-Purpose description: This script implements the symbolic regression algorithm through
-                     the VecSymRegressor class, enabling the evolution of mathematical expressions
-                     to fit given data. The class provides methods for generating random expressions,
-                     evaluating their fitness, and evolving expressions through mutation and crossover.
-                     It aims to find the best-fitting mathematical model for a given dataset.
-Note: This overview assumes that the VecSymRegressor class and all its dependencies are properly installed
-      and functional.
-"""
-
 import numpy as np
 from sympy import sympify, expand
 import operator

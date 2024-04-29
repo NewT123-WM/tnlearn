@@ -12,43 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""
-Program name: MLPRegressor Class Implementation
-Purpose description: This script embodies the MLPRegressor class, designed as an extension
-                     of BaseModel within a custom machine learning framework.
-                     It facilitates the creation and training of a multilayer perceptron (MLP)
-                     for regression tasks. Features of the class include the flexibility to
-                     define custom neural network architectures through parameters such as
-                     neuronal expression and layer structure, the utilization of various activation
-                     functions, and the incorporation of modern optimization algorithms and
-                     regularization techniques. Moreover, the class is equipped with optional
-                     GPU support for enhanced computational efficiency, as well as functionalities
-                     for training visualization, validation, and model performance evaluation.
-                     This representation of an MLP is tailored to adapt to an array of regression
-                     problems while ensuring ease of use and extensibility.
-Note: The application of the MLPRegressor class presupposes that the necessary neural
-      network modules, loss functions, and optimizers are available and correctly configured
-      in the encompassing framework. It is also assumed that the user has proper knowledge
-      of the regression task requirements and has the appropriate data pre-processing
-      steps applied to their data before model training.
-"""
 
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-from sklearn.model_selection import train_test_split
 import torch.optim.lr_scheduler as lr_scheduler
-from tnlearn.utils import MyData
 from tnlearn.neurons import CustomNeuronLayer
 from tnlearn.seeds import random_seed
 from tnlearn.activation_function import get_activation_function
 from tnlearn.loss_function import get_loss_function
 from tnlearn.optimizer import get_optimizer
-from tnlearn.base import BaseModel
+from tnlearn.base1 import BaseModel1
+from torchinfo import summary
 
 
-class MLPRegressor(BaseModel):
+class MLPRegressor(BaseModel1):
     def __init__(self,
                  neurons='x',
                  layers_list=None,
@@ -58,11 +37,11 @@ class MLPRegressor(BaseModel):
                  random_state=1,
                  max_iter=300,
                  batch_size=128,
-                 valid_size=0.2,
                  lr=0.001,
                  visual=False,
                  visual_interval=100,
                  save=False,
+                 fig_path=None,
                  gpu=None,
                  interval=None,
                  scheduler=None,
@@ -80,7 +59,6 @@ class MLPRegressor(BaseModel):
              random_state: Seed for random number generators for reproducibility
              max_iter: Maximum number of training iterations
              batch_size: Number of samples per batch during training
-             valid_size: Fraction of training data used for validation
              lr: Learning rate for the optimizer
              visual: Boolean indicating if training visualization is to be shown
              visual_interval: Interval at which training visualization is updated
@@ -98,7 +76,6 @@ class MLPRegressor(BaseModel):
         self.random_state = random_state
         self.max_iter = max_iter
         self.batch_size = batch_size
-        self.valid_size = valid_size
         self.lr = lr
         self.neurons = neurons
         self.optimizer_name = optimizer_name
@@ -110,12 +87,18 @@ class MLPRegressor(BaseModel):
         self.l1_reg = l1_reg
         self.l2_reg = l2_reg
 
+        if fig_path is None:
+            self.fig_path = './'
+        else:
+            self.fig_path = fig_path
+
         # Select the device for training based on GPU configuration
         self.gpu = gpu
         self.device = self.select_device(gpu)
 
         # Validation to ensure that the visual_interval is an integer and not zero
-        assert isinstance(self.visual_interval, int) and self.visual_interval, "visual_interval must be a non-zero integer"
+        assert isinstance(self.visual_interval,
+                          int) and self.visual_interval, "visual_interval must be a non-zero integer"
 
         # Use default layers if none are provided
         if layers_list is None:
@@ -203,24 +186,16 @@ class MLPRegressor(BaseModel):
 
         # Convert the input and target data to torch tensors if they are not already
         if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float32)
-        if not isinstance(y, torch.Tensor):
-            y = torch.tensor(y, dtype=torch.float32)
+            self.X = torch.tensor(X, dtype=torch.float32)
 
-        # Split the dataset into training and validation sets
-        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=self.valid_size,
-                                                              random_state=self.random_state)
+        if not isinstance(y, torch.Tensor):
+            self.y = torch.tensor(y, dtype=torch.float32)
+
         # Create dataset objects to be used with DataLoaders
-        trainset = MyData(X_train, y_train)
+        trainset = TensorDataset(self.X, self.y)
 
         # DataLoader for the training set allows iterating over the data in batches and shuffling
         self.trainloader = DataLoader(trainset, batch_size=self.batch_size, shuffle=True)
-        validset = MyData(X_valid, y_valid)
-        # DataLoader for the validation set, also in batches
-        self.validloader = DataLoader(validset, batch_size=self.batch_size, shuffle=True)
-
-        self.train_number = X_train.shape[0]
-        self.valid_number = X_valid.shape[0]
 
     def fit(self, X, y):
         r"""Train the network with training data.
@@ -263,7 +238,6 @@ class MLPRegressor(BaseModel):
 
         # Set the network to training mode.
         self.net.train()
-        print(self.net)
         for epoch in range(self.max_iter):
             self.current_epoch = epoch + 1  # Update the current epoch counter.
 
@@ -289,20 +263,16 @@ class MLPRegressor(BaseModel):
 
                 loss.backward()
                 self.optimizer.step()
+
                 running_loss += loss.item()
-            running_loss /= self.train_number
 
             # Step the scheduler to update the learning rate if applicable.
             if self.scheduler is not None:
                 scheduler.step()
 
-            # Evaluate the model on the validation set after this epoch.
-            valid_loss = self.evaluate(self.validloader)
-
             # Log the progress at the specified interval.
             if self.interval is not None and (epoch + 1) % self.interval == 0:
-                print(f'Epoch [{epoch + 1}/{self.max_iter}], Loss: {running_loss:.4f},'
-                      f' Validation Loss: {valid_loss:.4f}')
+                print(f'Epoch [{epoch + 1}/{self.max_iter}], Loss: {running_loss:.4f}')
 
             # Append the loss (and optionally accuracy) to the lists for tracking.
             self.losses.append(running_loss)
@@ -310,35 +280,11 @@ class MLPRegressor(BaseModel):
             # Visualization of the training progress if enabled.
             if self.visual:
                 if epoch % self.visual_interval == 0:
-                    self.plot_progress(loss=self.losses)
+                    self.plot_progress_regression(loss=self.losses)
 
         # Save the plot to file if save_fig is set.
         if self.save_fig:
-            self.plot_progress(loss=self.losses, savefig=self.save_fig)
-
-    def evaluate(self, dataloader):
-        r"""Evaluate the network using validation set.
-
-        Args:
-            dataloader: Data for evaluation.
-
-        Returns:
-            accuracy
-        """
-        # Set the network to evaluation mode
-        self.net.eval()
-        total_loss = 0.0
-
-        # Disable gradient calculations
-        with torch.no_grad():
-            for inputs, targets in dataloader:
-                inputs, targets = inputs.to(self.device), targets.to(self.device).reshape(-1, 1)
-                outputs = self.net(inputs)
-                loss = self.cost(outputs, targets)
-                total_loss += loss.item()
-
-        # Return the average loss over the batches
-        return total_loss / self.valid_number
+            self.regression_savefigure(loss=self.losses, path=self.fig_path)
 
     def predict(self, X):
         r"""Use a trained model to make predictions.
@@ -369,28 +315,27 @@ class MLPRegressor(BaseModel):
 
         # Flatten the predictions list to a 1D numpy array
         predictions = np.array(predictions).flatten()
-        print(predictions)
         return predictions
 
-    def score(self, X, y):
+    def score(self, X_, y_):
         r"""Evaluate the score of the model.
 
         Args:
-            X (torch.Tensor or numpy ndarray): Training data.
-            y (torch.Tensor or numpy ndarray): Label data.
+            X_ (torch.Tensor or numpy ndarray): Training data.
+            y_ (torch.Tensor or numpy ndarray): Label data.
 
         Returns:
             accuracy
         """
         # Convert X to a PyTorch float tensor if it is not one already
-        if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float32)
+        if not isinstance(X_, torch.Tensor):
+            X_ = torch.tensor(X_, dtype=torch.float32)
         # Convert y to a PyTorch float tensor if it is not one already
-        if not isinstance(y, torch.Tensor):
-            y = torch.tensor(y, dtype=torch.float32)
+        if not isinstance(y_, torch.Tensor):
+            y_ = torch.tensor(y_, dtype=torch.float32)
 
         # Create a DataLoader
-        dataset = TensorDataset(X, y)
+        dataset = TensorDataset(X_, y_)
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
 
         self.net.eval()
@@ -405,9 +350,14 @@ class MLPRegressor(BaseModel):
                 # Update total loss with the weighted loss of the batch
                 total_loss += loss.item() * inputs.size(0)
 
+        self.net.train()
+
         # Divide the total loss by the number of samples to get the average loss
-        total_loss /= X.shape[0]
+        total_loss /= X_.shape[0]
 
         print(f'Mean Squared Error: {total_loss:.4f}')
         # Return the mean squared error
         return total_loss
+
+    def count_param(self):
+        summary(self.net, input_size=(self.batch_size, 1, 10, self.input_dim))

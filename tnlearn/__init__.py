@@ -21,5 +21,6 @@ from tnlearn.mlpregressor import MLPRegressor
 from tnlearn.mlpclassifier import MLPClassifier
 from tnlearn.preprocessing import DataPreprocessor
 from tnlearn.base import BaseModel
+from tnlearn.base1 import BaseModel1
 
 

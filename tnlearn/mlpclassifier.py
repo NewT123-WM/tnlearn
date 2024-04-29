@@ -12,36 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""
-Program name: MLPClassifier Class Implementation
-Purpose description: This script implements the class MLPClassifier, which extends
-                     the functionality of the base class to build and train a
-                     Multi-layer Perceptron (MLP) model. MLPClassifier is designed
-                     to allow easy customization of the neural network structure,
-                     activation functions, and loss function used during training.
-                     It incorporates device selection to leverage available GPU resources,
-                     ensuring efficient computation. The class covers essential methods
-                     for model training, evaluation, and prediction, making it a flexible
-                     tool for supervised learning tasks in PyTorch.
-Note: This overview assumes that all required modules and dependencies are installed,
-      including PyTorch, and that the ‘get_activation_function’ and
-      ‘get_loss_function’ utilities, as well as the ‘random_seed’ function,
-      are defined and operable within the environment.
-"""
 
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-from sklearn.model_selection import train_test_split
 import torch.optim.lr_scheduler as lr_scheduler
-from tnlearn.utils import MyData
 from tnlearn.neurons import CustomNeuronLayer
 from tnlearn.seeds import random_seed
 from tnlearn.activation_function import get_activation_function
 from tnlearn.loss_function import get_loss_function
 from tnlearn.optimizer import get_optimizer
 from tnlearn.base import BaseModel
+from torchinfo import summary
 
 
 class MLPClassifier(BaseModel):
@@ -54,10 +37,10 @@ class MLPClassifier(BaseModel):
                  random_state=1,
                  max_iter=300,
                  batch_size=128,
-                 valid_size=0.2,
                  lr=0.001,
                  visual=False,
                  save=False,
+                 fig_path=None,
                  visual_interval=100,
                  gpu=None,
                  interval=None,
@@ -76,7 +59,6 @@ class MLPClassifier(BaseModel):
          random_state: Seed for random number generators for reproducibility
          max_iter: Maximum number of training iterations
          batch_size: Number of samples per batch during training
-         valid_size: Fraction of training data used for validation
          lr: Learning rate for the optimizer
          visual: Boolean indicating if training visualization is to be shown
          visual_interval: Interval at which training visualization is updated
@@ -94,7 +76,6 @@ class MLPClassifier(BaseModel):
         self.random_state = random_state
         self.max_iter = max_iter
         self.batch_size = batch_size
-        self.valid_size = valid_size
         self.lr = lr
         self.neurons = neurons
         self.optimizer_name = optimizer_name
@@ -106,12 +87,18 @@ class MLPClassifier(BaseModel):
         self.l1_reg = l1_reg
         self.l2_reg = l2_reg
 
+        if fig_path is None:
+            self.fig_path = './'
+        else:
+            self.fig_path = fig_path
+
         # Set device for computation
         self.gpu = gpu
         self.device = self.select_device(gpu)
 
         # Check if visual_interval is an integer and non-zero
-        assert isinstance(self.visual_interval, int) and self.visual_interval, "visual_interval must be a non-zero integer"
+        assert isinstance(self.visual_interval,
+                          int) and self.visual_interval, "visual_interval must be a non-zero integer"
 
         # Set default layers if layers_list is not provided
         if layers_list is None:
@@ -198,21 +185,14 @@ class MLPClassifier(BaseModel):
 
         # Ensure X and y are PyTorch tensors
         if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float32)
+            self.X = torch.tensor(X, dtype=torch.float32)
+
         if not isinstance(y, torch.Tensor):
-            y = torch.tensor(y, dtype=torch.long)
+            self.y = torch.tensor(y, dtype=torch.long)
 
-        # Split the dataset
-        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=self.valid_size,
-                                                              random_state=self.random_state)
         # Dataset transformation
-        trainset = MyData(X_train, y_train)
+        trainset = TensorDataset(self.X, self.y)
         self.trainloader = DataLoader(trainset, batch_size=self.batch_size, shuffle=True)
-        validset = MyData(X_valid, y_valid)
-        self.validloader = DataLoader(validset, batch_size=self.batch_size, shuffle=True)
-
-        self.train_number = X_train.shape[0]
-        self.valid_number = X_valid.shape[0]
 
     def fit(self, X, y):
         r"""Train the network with training data.
@@ -251,13 +231,12 @@ class MLPClassifier(BaseModel):
                                        lr=self.lr)
 
         # Add learning rate adjustment strategy
-        if self.scheduler is not None:   # If a learning rate adjustment strategy is provided
+        if self.scheduler is not None:  # If a learning rate adjustment strategy is provided
             scheduler = lr_scheduler.StepLR(self.optimizer, step_size=self.scheduler["step_size"],
                                             gamma=self.scheduler["gamma"])
 
-        # Initialize lists to track training and testing accuracies
+        # Initialize lists to track training accuracies
         self.net_train_accuracy = []
-        self.net_test_accuracy = []
 
         # Set the model to training mode
         self.net.train()
@@ -294,65 +273,40 @@ class MLPClassifier(BaseModel):
                 # Backward pass and optimization
                 loss.backward()
                 self.optimizer.step()
+
                 running_loss += loss.item()
-            running_loss /= self.train_number
 
             # Update the learning rate at the end of each epoch if a scheduler is provided
             if self.scheduler is not None:
                 scheduler.step()
 
-            # Calculate accuracies on the training and validation sets
-            train_accuracy = self.evaluate(self.trainloader)
-            test_accuracy = self.evaluate(self.validloader)
-            self.net_train_accuracy.append(train_accuracy)
-            self.net_test_accuracy.append(test_accuracy)
+            train_accuracy = 0.0
+            with torch.no_grad():
+                for inputs, labels in self.trainloader:
+                    inputs = inputs.to(self.device)
+                    labels = labels.to(self.device)
+                    predict = self.net(inputs)
+                    _, predict_class = torch.max(predict, 1)
+                    train_accuracy += (predict_class == labels).sum().item()
+            train_accuracy = train_accuracy / self.X.shape[0]
 
-            # Print the training and validation accuracies at specified intervals
-            if self.interval is not None:
-                if (epoch + 1) % self.interval == 0:
-                    print(
-                        f'Epoch [{epoch + 1}/{self.max_iter}], Train Accuracy: {train_accuracy:.4f}, '
-                        f'Validation Accuracy: {test_accuracy:.4f}')
+            # Log the progress at the specified interval.
+            if self.interval is not None and (epoch + 1) % self.interval == 0:
+                print(f'Epoch [{epoch + 1}/{self.max_iter}], Loss: {running_loss:.4f}, Accuracy:{train_accuracy:.4f}')
 
-            # Append the loss to the history list
+            # Append the loss and accuracy to the history list
             self.losses.append(running_loss)
+
+            self.net_train_accuracy.append(train_accuracy)
 
             # Visualize the progress if enabled and at specified intervals
             if self.visual:
                 if epoch % self.visual_interval == 0:
-                    self.plot_progress(loss=self.losses, accuracy=self.net_train_accuracy)
+                    self.plot_progress_classification(loss=self.losses, accuracy=self.net_train_accuracy)
 
         # Save the visualization if enabled
         if self.save_fig:
-            self.plot_progress(loss=self.losses, accuracy=self.net_train_accuracy, savefig=self.save_fig)
-
-    def evaluate(self, dataloader):
-        r"""Evaluate the network using validation set.
-
-        Args:
-            dataloader: Data for evaluation.
-
-        Returns:
-            accuracy
-        """
-        # Set the network to evaluation mode
-        self.net.eval()
-        total_correct = 0
-
-        # Disable gradient calculation
-        with torch.no_grad():
-            for inputs, labels in dataloader:
-                # Move inputs and labels to the appropriate device (like GPU)
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
-                # Forward pass
-                outputs = self.net(inputs)
-                # Get the predicted class
-                _, predicted = torch.max(outputs.data, 1)
-                # Update total samples and total correct predictions
-
-                total_correct += (predicted == labels).sum().item()
-        # Calculate accuracy
-        return total_correct / self.valid_number
+            self.classification_savefigure(loss=self.losses, accuracy=self.net_train_accuracy, path=self.fig_path)
 
     def predict(self, X):
         r"""Use a trained model to make predictions.
@@ -384,34 +338,32 @@ class MLPClassifier(BaseModel):
                 # Extend the list of predictions
                 predictions.extend(predicted.cpu().numpy())
 
-        print(np.array(predictions))
         # Return the predictions
         return np.array(predictions)
 
-    def score(self, X, y):
+    def score(self, X_, y_):
         r"""Evaluate the score of the model.
 
         Args:
-            X (torch.Tensor or numpy ndarray): Training data.
-            y (torch.Tensor or numpy ndarray): Label data.
+            X_ (torch.Tensor or numpy ndarray): Training data.
+            y_ (torch.Tensor or numpy ndarray): Label data.
 
         Returns:
             accuracy
         """
         # Ensure X and y are PyTorch tensors
-        if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float32)
-        if not isinstance(y, torch.Tensor):
-            y = torch.tensor(y, dtype=torch.long)
+        if not isinstance(X_, torch.Tensor):
+            X_ = torch.tensor(X_, dtype=torch.float32)
+        if not isinstance(y_, torch.Tensor):
+            y_ = torch.tensor(y_, dtype=torch.long)
 
         # Create a DataLoader
-        dataset = TensorDataset(X, y)
+        dataset = TensorDataset(X_, y_)
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
 
         # Set the network to evaluation mode
         self.net.eval()
-        correct = 0
-        total = len(y)
+        correct = 0.0
 
         # Disable gradient calculation
         with torch.no_grad():
@@ -426,8 +378,12 @@ class MLPClassifier(BaseModel):
 
         # Set the network back to training mode
         self.net.train()
-        # Calculate accuracy
-        accuracy = correct / total
 
-        print(f'Accuracy: {accuracy:.4f}')
-        return accuracy
+        # Calculate accuracy
+        correct /= X_.shape[0]
+
+        print(f'Accuracy: {correct:.4f}')
+        return correct
+
+    def count_param(self):
+        summary(self.net, input_size=(self.batch_size, 1, 10, self.input_dim))

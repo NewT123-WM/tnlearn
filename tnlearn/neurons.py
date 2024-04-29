@@ -13,18 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-"""
-Program name: Custom Neuron Layer Implementation
-Purpose description: This module implements the `CustomNeuronLayer` class in the 'tnlearn'
-                     package. It encapsulates the creation of a custom neural network layer
-                     based on a symbolic mathematical expression, allowing the instantiation
-                     of neural networks with symbolic neurons for both regression and
-                     classification tasks. It inherits from PyTorch's nn.Module, leveraging
-                     deep learning frameworks for gradient-based optimization.
-Note: This overview presupposes that the user has basic understanding of deep learning
-      concepts and is facile with PyTorch's core principles and operations.
-"""
-
 import math
 import torch
 import torch.nn as nn
