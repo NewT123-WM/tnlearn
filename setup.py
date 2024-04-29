@@ -23,7 +23,7 @@ setup(
     ],
     python_requires='>=3.8',
     install_requires=[
-        'torch>=2.1.2',
+        'torch>=2.1.0',
         'numpy>=1.26.4',
         'scikit-learn>=1.4.1.post1',
         'pandas>=2.2.1',
