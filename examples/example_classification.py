@@ -29,7 +29,7 @@ clf = MLPClassifier(
     loss_function='crossentropy',
     random_state=100,
     optimizer_name='adam',
-    max_iter=50,
+    max_iter=500,
     batch_size=8,
     lr=0.01,
     visual=True,
@@ -53,6 +53,7 @@ clf.fit(X, y)
 # clf.count_param()
 #
 # clf.save(path='my_model_dir', filename='mlp_classifier.pth')
+
 # clf.load(path='my_model_dir', filename='mlp_classifier.pth',
 #          input_dim=X.shape[1], output_dim=1,
 #          )

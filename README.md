@@ -120,9 +120,9 @@ Here is a resource summary for neuronal diversity in artificial networks.
 
 You should ensure that the version of pytorch corresponds to the version of cuda so that gpu acceleration can be guaranteed. Here is a reference version
 
-`Pytorch 2.1.0`
+`Pytorch >= 2.1.0`
 
-`cuda 12.1`
+`cuda >= 12.1`
 
 Other major dependencies are automatically installed when installing tnlearn.
 
