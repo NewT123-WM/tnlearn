@@ -33,6 +33,10 @@ def get_optimizer(name, parameters, lr=0.001, **kwargs):
         'sgd': optim.SGD(params=parameters, lr=lr, **kwargs),
         'rmsprop': optim.RMSprop(params=parameters, lr=lr, **kwargs),
         'adamw': optim.AdamW(params=parameters, lr=lr, **kwargs),
+        'asgd': optim.ASGD(params=parameters, lr=lr, **kwargs),
+        'adagrad': optim.Adagrad(params=parameters, lr=lr, **kwargs),
+        'adamax': optim.Adamax(params=parameters, lr=lr, **kwargs),
+
         # Add more optimizers if needed
     }
 

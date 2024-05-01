@@ -29,10 +29,10 @@ class CustomNeuronLayer(nn.Module):
         and the symbolic expression that defines neuron functionality.
 
         Args:
-            in_features:
-            out_features:
-            symbolic_expression:
-            bias:
+            in_features: The number of features of the input data.
+            out_features: The number of features of the output data.
+            symbolic_expression: Neuronal expression obtained by vectorized symbolic regression.
+            bias: Bias.
         """
         super(CustomNeuronLayer, self).__init__()
 

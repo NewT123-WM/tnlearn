@@ -15,7 +15,6 @@
 
 import os
 import torch
-from torchinfo import summary
 from tnlearn.visualize import Visualization_Classification
 from sklearn.metrics import roc_auc_score, f1_score, recall_score, precision_score
 
@@ -28,13 +27,23 @@ class BaseModel:
         self.visualization_classification = Visualization_Classification()
 
     def plot_progress_classification(self, loss, accuracy):
-        r"""Method to update the progress plot during training."""
-        # Update visualization with the current epoch, loss, and optional accuracy
+        r"""Method to update the progress plot during training.
+
+        Args:
+            loss: Training loss.
+            accuracy: Training accuracy.
+        """
+        # Update visualization with the current epoch, loss, and accuracy
         self.visualization_classification.update(self.current_epoch, loss, accuracy)
 
     def classification_savefigure(self, loss, accuracy, path):
-        r"""Method to update the progress plot during training."""
-        # Update visualization with the current epoch, loss, and optional accuracy
+        r"""Method to save the training process figure.
+
+        Args:
+            loss: Training loss.
+            accuracy: Training accuracy.
+            path: Path to save the figure.
+        """
         self.visualization_classification.savefigure(loss, accuracy, path)
 
     def save(self, path, filename):

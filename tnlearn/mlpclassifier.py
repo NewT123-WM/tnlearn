@@ -45,29 +45,30 @@ class MLPClassifier(BaseModel):
                  gpu=None,
                  interval=None,
                  scheduler=None,
-                 l1_reg=None,
-                 l2_reg=None,
+                 l1_reg=False,
+                 l2_reg=False,
                  ):
         r"""Construct MLPClassifier with task-based neurons.
 
     Args:
-         neurons: Neuronal expression
-         layers_list: List of neuron counts for each hidden layer
-         activation_funcs: Activation functions
-         loss_function: Loss function for the training process
-         optimizer_name: Name of the optimizer algorithm
-         random_state: Seed for random number generators for reproducibility
-         max_iter: Maximum number of training iterations
-         batch_size: Number of samples per batch during training
-         lr: Learning rate for the optimizer
-         visual: Boolean indicating if training visualization is to be shown
-         visual_interval: Interval at which training visualization is updated
-         save: Indicates if the training figure should be saved
-         gpu: Specifies GPU configuration for training
-         interval: Interval of screen output during training
-         scheduler: Learning rate scheduler
-         l1_reg: L1 regularization term
-         l2_reg: L2 regularization term
+         neurons (str): Neuronal expression
+         layers_list (list): List of neuron counts for each hidden layer
+         activation_funcs (str): Activation functions
+         loss_function (str): Loss function for the training process
+         optimizer_name (str): Name of the optimizer algorithm
+         random_state (int): Seed for random number generators for reproducibility
+         max_iter (int): Maximum number of training iterations
+         batch_size (int): Number of samples per batch during training
+         lr (float): Learning rate for the optimizer
+         visual (boolean): Boolean indicating if training visualization is to be shown
+         save (boolean): Indicates if the training figure should be saved
+         fig_path (str or None): Path to save the training figure
+         visual_interval (int): Interval at which training visualization is updated
+         gpu (int or None): Specifies GPU configuration for training
+         interval (int): Interval of screen output during training
+         scheduler (dict): Learning rate scheduler
+         l1_reg (boolean): L1 regularization term
+         l2_reg (boolean): L2 regularization term
         """
 
         super(MLPClassifier, self).__init__()
@@ -169,8 +170,8 @@ class MLPClassifier(BaseModel):
         r"""Prepares the input data and splits it into training and validation sets.
 
         Args:
-            X (torch.Tensor or numpy ndarray): Training data.
-            y (torch.Tensor or numpy ndarray): Label data.
+            X (numpy ndarray): Training data.
+            y (numpy ndarray): Label data.
         """
         # Data dimension check and setting
         if not isinstance(X, np.ndarray):
@@ -198,13 +199,13 @@ class MLPClassifier(BaseModel):
         r"""Train the network with training data.
 
         Args:
-            X (torch.Tensor or numpy ndarray): Training data.
-            y (torch.Tensor or numpy ndarray): Label data.
+            X (numpy ndarray): Training data.
+            y (numpy ndarray): Label data.
         """
         # Prepare the data
         self.prepare_data(X, y)
 
-        # Initialize lists to track losses and, optionally, accuracies
+        # Initialize lists to track losses
         self.losses = []
 
         # Build the neural network model based on input and output dimensions and move it to the specified device
@@ -345,8 +346,8 @@ class MLPClassifier(BaseModel):
         r"""Evaluate the score of the model.
 
         Args:
-            X_ (torch.Tensor or numpy ndarray): Training data.
-            y_ (torch.Tensor or numpy ndarray): Label data.
+            X_ (numpy ndarray): Training data.
+            y_ (numpy ndarray): Label data.
 
         Returns:
             accuracy
@@ -386,4 +387,6 @@ class MLPClassifier(BaseModel):
         return correct
 
     def count_param(self):
-        summary(self.net, input_size=(self.batch_size, 1, 10, self.input_dim))
+        r"""Print the network structure and output the number of network parameters."""
+
+        summary(self.net, input_size=(self.batch_size, 1, self.X.shape[0], self.input_dim))

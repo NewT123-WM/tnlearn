@@ -30,6 +30,10 @@ def get_loss_function(name):
         'l1': nn.L1Loss(),
         'crossentropy': nn.CrossEntropyLoss(),
         'bce': nn.BCELoss(),
+        'nll': nn.NLLLoss(),
+        'poissonnll': nn.PoissonNLLLoss(),
+        'marginranking': nn.MarginRankingLoss(),
+        'smoothl1': nn.SmoothL1Loss(),
 
         # Add more activation functions if needed
     }

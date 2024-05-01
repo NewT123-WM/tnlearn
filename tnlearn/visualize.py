@@ -63,7 +63,7 @@ from IPython.display import clear_output
 #         if savefig or self.save_fig:
 #             self.fig.savefig(self.save_path)
 #             # self.save()
-
+# ===========================================================================================
 
 class Visualization_Classification:
     r"""Class for plotting and visualizing training progress."""
@@ -89,15 +89,19 @@ class Visualization_Classification:
         ax_loss = self.ax[0]
         ax_loss.cla()
         ax_loss.set_title('Loss')
+        ax_loss.set_xlabel('Epoch')
+        ax_loss.set_ylabel('Loss')
         ax_loss.plot(range(1, epoch + 1), loss, label='Training Loss')
-        ax_loss.legend()
+        # ax_loss.legend()
 
         # Plot training accuracy
         ax_accuracy = self.ax[1]
         ax_accuracy.cla()
         ax_accuracy.set_title('Accuracy')
+        ax_accuracy.set_xlabel('Epoch')
+        ax_accuracy.set_ylabel('Accuracy')
         ax_accuracy.plot(range(1, epoch + 1), accuracy, label='Training Accuracy')
-        ax_accuracy.legend()
+        # ax_accuracy.legend()
 
         plt.draw()  # Update the plot
         plt.pause(0.01)  # Pause the plot to update it
@@ -117,15 +121,19 @@ class Visualization_Classification:
         ax_loss = self.ax[0]
         ax_loss.cla()
         ax_loss.set_title('Loss')
+        ax_loss.set_xlabel('Epoch')
+        ax_loss.set_ylabel('Loss')
         ax_loss.plot(loss, label='Training Loss')
-        ax_loss.legend()
+        # ax_loss.legend()
 
         # Plot training accuracy
         ax_accuracy = self.ax[1]
         ax_accuracy.cla()
         ax_accuracy.set_title('Accuracy')
+        ax_accuracy.set_xlabel('Epoch')
+        ax_accuracy.set_ylabel('Accuracy')
         ax_accuracy.plot(accuracy, label='Training Accuracy')
-        ax_accuracy.legend()
+        # ax_accuracy.legend()
 
         self.fig.savefig(path + self.save_path)
 
@@ -152,7 +160,9 @@ class Visualization_Regression:
 
         plt.clf()
         plt.title('Loss')
-        plt.plot(loss, label='Training Loss', color='b')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.plot(loss, label='Training Loss', color='royalblue')
 
         plt.draw()  # Update the plot
         plt.pause(0.01)  # Pause the plot to update it
@@ -170,6 +180,8 @@ class Visualization_Regression:
         # Plot training loss
         plt.clf()
         plt.title('Loss')
-        plt.plot(loss, label='Training Loss', color='b')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.plot(loss, label='Training Loss', color='royalblue')
 
         plt.savefig(path + self.save_path)

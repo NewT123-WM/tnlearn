@@ -28,10 +28,20 @@ def get_activation_function(name):
 
     activations = {
         'relu': nn.ReLU(),
+        'elu': nn.ELU(),
         'leakyrelu': nn.LeakyReLU(),
         'sigmoid': nn.Sigmoid(),
+        'logsigmoid': nn.LogSigmoid(),
         'tanh': nn.Tanh(),
         'softmax': nn.Softmax(dim=-1),  # You could need to specify the dimension
+        'prelu': nn.PReLU(),
+        'selu': nn.SELU(),
+        'celu': nn.CELU(),
+        'gelu': nn.GELU(),
+        'silu': nn.SiLU(),
+        'mish': nn.Mish(),
+        'softplus': nn.Softplus(),
+
         # Add more activation functions if needed
     }
     # Return the requested activation function or ReLU as default

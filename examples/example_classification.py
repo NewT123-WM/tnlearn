@@ -25,7 +25,6 @@ layers_list = [10, 10]
 clf = MLPClassifier(
     layers_list=layers_list,
     neurons=sr,
-    # neurons='x',
     activation_funcs='sigmoid',
     loss_function='crossentropy',
     random_state=100,
@@ -33,29 +32,29 @@ clf = MLPClassifier(
     max_iter=50,
     batch_size=8,
     lr=0.01,
-    visual=False,
+    visual=True,
     visual_interval=10,
     save=True,
-    fig_path=None,
+    fig_path='./',
     gpu=None,
     interval=10,
     # scheduler={'step_size': 30,
     #            'gamma': 0.2},
-    l1_reg=None,
-    l2_reg=None,
+    l1_reg=False,
+    l2_reg=False,
 )
 
 clf.fit(X, y)
 
-print(clf.predict(X_test))
-
-clf.score(X_test, y_test)
-
-clf.count_param()
-
-clf.save(path='my_model_dir', filename='mlp_classifier.pth')
-clf.load(path='my_model_dir', filename='mlp_classifier.pth',
-         input_dim=X.shape[1], output_dim=1,
-         )
-
-clf.fit(X, y)
+# print(clf.predict(X_test))
+#
+# clf.score(X_test, y_test)
+#
+# clf.count_param()
+#
+# clf.save(path='my_model_dir', filename='mlp_classifier.pth')
+# clf.load(path='my_model_dir', filename='mlp_classifier.pth',
+#          input_dim=X.shape[1], output_dim=1,
+#          )
+#
+# clf.fit(X, y)

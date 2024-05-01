@@ -38,15 +38,15 @@ class VecSymRegressor:
         r"""Use vectorized symbolic regression algorithm to generate neuronal expression.
 
         Args:
-            random_state (Int): Seed for random number generation
-            pop_size (Int): Population size for genetic algorithm
-            max_generations (Int): Maximum generations for genetic algorithm
-            tournament_size (Int): Size of tournament selection
-            coefficient_range (List): Random coefficient range
-            x_pct (Float): Probability of selecting a variable node during random program generation
-            xover_pct (Float): Crossover probability during offspring generation
-            save (Boolean): Flag for saving
-            operations (Dict): Set of operations to be used in program generation
+            random_state (int): Seed for random number generation
+            pop_size (int): Population size for genetic algorithm
+            max_generations (int): Maximum generations for genetic algorithm
+            tournament_size (int): Size of tournament selection
+            coefficient_range (list): Random coefficient range
+            x_pct (float): Probability of selecting a variable node during random program generation
+            xover_pct (float): Crossover probability during offspring generation
+            save (boolean): Flag for saving
+            operations (dict or None): Set of operations to be used in program generation
         """
 
         random_seed(random_state)

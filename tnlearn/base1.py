@@ -27,13 +27,21 @@ class BaseModel1:
         self.visualization_regression = Visualization_Regression()
 
     def plot_progress_regression(self, loss):
-        r"""Method to update the progress plot during training."""
-        # Update visualization with the current epoch, loss, and optional accuracy
+        r"""Method to update the progress plot during training.
+
+        Args:
+            loss: Training loss.
+        """
+        # Update visualization with the current epoch and loss
         self.visualization_regression.update(self.current_epoch, loss)
 
     def regression_savefigure(self, loss, path):
-        r"""Method to update the progress plot during training."""
-        # Update visualization with the current epoch, loss, and optional accuracy
+        r"""Method to save the training process figure.
+
+        Args:
+            loss: Training loss.
+            path: Path to save the figure.
+        """
         self.visualization_regression.savefigure(loss, path)
 
     def save(self, path, filename):

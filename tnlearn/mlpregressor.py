@@ -51,23 +51,24 @@ class MLPRegressor(BaseModel1):
         r""" Construct MLPRegressor with task-based neurons.
 
         Args:
-             neurons: Neuronal expression
-             layers_list: List of neuron counts for each hidden layer
-             activation_funcs: Activation functions
-             loss_function: Loss function for the training process
-             optimizer_name: Name of the optimizer algorithm
-             random_state: Seed for random number generators for reproducibility
-             max_iter: Maximum number of training iterations
-             batch_size: Number of samples per batch during training
-             lr: Learning rate for the optimizer
-             visual: Boolean indicating if training visualization is to be shown
-             visual_interval: Interval at which training visualization is updated
-             save: Indicates if the training figure should be saved
-             gpu: Specifies GPU configuration for training
-             interval: Interval of screen output during training
-             scheduler: Learning rate scheduler
-             l1_reg: L1 regularization term
-             l2_reg: L2 regularization term
+             neurons (str): Neuronal expression
+             layers_list (list): List of neuron counts for each hidden layer
+             activation_funcs (str): Activation functions
+             loss_function (str): Loss function for the training process
+             optimizer_name (str): Name of the optimizer algorithm
+             random_state (int): Seed for random number generators for reproducibility
+             max_iter (int): Maximum number of training iterations
+             batch_size (int): Number of samples per batch during training
+             lr (float): Learning rate for the optimizer
+             visual (boolean): Boolean indicating if training visualization is to be shown
+             save (boolean): Indicates if the training figure should be saved
+             fig_path (str or None): Path to save the training figure
+             visual_interval (int): Interval at which training visualization is updated
+             gpu (int or None): Specifies GPU configuration for training
+             interval (int): Interval of screen output during training
+             scheduler (dict): Learning rate scheduler
+             l1_reg (boolean): L1 regularization term
+             l2_reg (boolean): L2 regularization term
         """
 
         super(MLPRegressor, self).__init__()
@@ -169,8 +170,8 @@ class MLPRegressor(BaseModel1):
         r"""Prepares the input data and splits it into training and validation sets.
 
         Args:
-            X (torch.Tensor or numpy ndarray): Training data.
-            y (torch.Tensor or numpy ndarray): Label data.
+            X (numpy ndarray): Training data.
+            y (numpy ndarray): Label data.
         """
         # Check and set the dimensions of the input data
         if not isinstance(X, np.ndarray):
@@ -201,15 +202,14 @@ class MLPRegressor(BaseModel1):
         r"""Train the network with training data.
 
         Args:
-            X (torch.Tensor or numpy ndarray): Training data.
-            y (torch.Tensor or numpy ndarray): Label data.
+            X (numpy ndarray): Training data.
+            y (numpy ndarray): Label data.
         """
-        # Prepare the data by performing any necessary preprocessing.
+        # Prepare the data by performing any necessary preprocessing
         self.prepare_data(X, y)
 
-        # Initialize the lists for tracking loss and, if required, accuracy.
+        # Initialize the lists for tracking loss
         self.losses = []
-        # self.accuracies = []
 
         # Build the model and move it to the appropriate device (CPU or GPU).
         if self.device == torch.device("cpu"):
@@ -282,7 +282,7 @@ class MLPRegressor(BaseModel1):
                 if epoch % self.visual_interval == 0:
                     self.plot_progress_regression(loss=self.losses)
 
-        # Save the plot to file if save_fig is set.
+        # Save the visualization if enabled
         if self.save_fig:
             self.regression_savefigure(loss=self.losses, path=self.fig_path)
 
@@ -321,11 +321,11 @@ class MLPRegressor(BaseModel1):
         r"""Evaluate the score of the model.
 
         Args:
-            X_ (torch.Tensor or numpy ndarray): Training data.
-            y_ (torch.Tensor or numpy ndarray): Label data.
+            X_ (numpy ndarray): Training data.
+            y_ (numpy ndarray): Label data.
 
         Returns:
-            accuracy
+            mean squared error
         """
         # Convert X to a PyTorch float tensor if it is not one already
         if not isinstance(X_, torch.Tensor):
@@ -341,7 +341,7 @@ class MLPRegressor(BaseModel1):
         self.net.eval()
 
         # Initialize total loss to zero
-        total_loss = 0
+        total_loss = 0.0
         with torch.no_grad():
             for inputs, targets in loader:
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
@@ -360,4 +360,6 @@ class MLPRegressor(BaseModel1):
         return total_loss
 
     def count_param(self):
+        r"""Print the network structure and output the number of network parameters."""
+
         summary(self.net, input_size=(self.batch_size, 1, 10, self.input_dim))

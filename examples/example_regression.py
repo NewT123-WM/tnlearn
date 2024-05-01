@@ -28,7 +28,6 @@ X, X_test, y, y_test = train_test_split(X_all, y_all, test_size=0.2, random_stat
 layers_list = [10, 10, 10]
 
 clf = MLPRegressor(
-    # neurons=neuron.neuron,
     neurons='6@x**2 + 2@x - 3',
     layers_list=layers_list,
     activation_funcs='sigmoid',
@@ -38,7 +37,7 @@ clf = MLPRegressor(
     max_iter=50,
     batch_size=10,
     lr=0.01,
-    visual=False,
+    visual=True,
     fig_path=None,
     visual_interval=10,
     save=True,
@@ -51,14 +50,14 @@ clf = MLPRegressor(
 )
 
 clf.fit(X, y)
-clf.count_param()
-print(clf.predict(X_test))
-
-clf.score(X_test, y_test)
-
-clf.save(path='my_model_dir', filename='mlp_regressor.pth')
-
-clf.load(path='my_model_dir', filename='mlp_regressor.pth',
-         input_dim=X.shape[1], output_dim=1)
-
-clf.fit(X, y)
+# clf.count_param()
+# print(clf.predict(X_test))
+#
+# clf.score(X_test, y_test)
+#
+# clf.save(path='my_model_dir', filename='mlp_regressor.pth')
+#
+# clf.load(path='my_model_dir', filename='mlp_regressor.pth',
+#          input_dim=X.shape[1], output_dim=1)
+#
+# clf.fit(X, y)
