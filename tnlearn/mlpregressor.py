@@ -25,6 +25,7 @@ from tnlearn.loss_function import get_loss_function
 from tnlearn.optimizer import get_optimizer
 from tnlearn.base1 import BaseModel1
 from torchinfo import summary
+from sklearn.metrics import r2_score
 
 
 class MLPRegressor(BaseModel1):
@@ -317,47 +318,39 @@ class MLPRegressor(BaseModel1):
         predictions = np.array(predictions).flatten()
         return predictions
 
-    def score(self, X_, y_):
-        r"""Evaluate the score of the model.
+    def score(self, X, y):
+        r"""Evaluate the coefficient of determination.
 
         Args:
-            X_ (numpy ndarray): Training data.
-            y_ (numpy ndarray): Label data.
+            X (numpy ndarray): Test data.
+            y (numpy ndarray): Label data.
 
         Returns:
-            mean squared error
+            Coefficient of determination.
         """
-        # Convert X to a PyTorch float tensor if it is not one already
-        if not isinstance(X_, torch.Tensor):
-            X_ = torch.tensor(X_, dtype=torch.float32)
-        # Convert y to a PyTorch float tensor if it is not one already
-        if not isinstance(y_, torch.Tensor):
-            y_ = torch.tensor(y_, dtype=torch.float32)
 
-        # Create a DataLoader
-        dataset = TensorDataset(X_, y_)
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
+        # Convert the input to a PyTorch tensor if it is not one already
+        if not isinstance(X, torch.Tensor):
+            X = torch.Tensor(X)
+
+        # Create a TensorDataset with the tensor
+        dataset = TensorDataset(X)
+        data_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
 
         self.net.eval()
 
-        # Initialize total loss to zero
-        total_loss = 0.0
+        predictions = []
         with torch.no_grad():
-            for inputs, targets in loader:
-                inputs, targets = inputs.to(self.device), targets.to(self.device)
+            for inputs in data_loader:
+                inputs = inputs[0].to(self.device)
                 outputs = self.net(inputs)
-                loss = torch.nn.functional.mse_loss(outputs, targets.reshape_as(outputs))
-                # Update total loss with the weighted loss of the batch
-                total_loss += loss.item() * inputs.size(0)
+                # Move outputs to cpu and convert to numpy, then add to predictions list
+                predictions.extend(outputs.cpu().numpy())
 
-        self.net.train()
+        # Flatten the predictions list to a 1D numpy array
+        predictions = np.array(predictions).flatten()
 
-        # Divide the total loss by the number of samples to get the average loss
-        total_loss /= X_.shape[0]
-
-        print(f'Mean Squared Error: {total_loss:.4f}')
-        # Return the mean squared error
-        return total_loss
+        return r2_score(y, predictions)
 
     def count_param(self):
         r"""Print the network structure and output the number of network parameters."""

@@ -25,6 +25,7 @@ from tnlearn.loss_function import get_loss_function
 from tnlearn.optimizer import get_optimizer
 from tnlearn.base import BaseModel
 from torchinfo import summary
+from sklearn.metrics import accuracy_score
 
 
 class MLPClassifier(BaseModel):
@@ -346,7 +347,7 @@ class MLPClassifier(BaseModel):
         r"""Evaluate the score of the model.
 
         Args:
-            X_ (numpy ndarray): Training data.
+            X_ (numpy ndarray): Test data.
             y_ (numpy ndarray): Label data.
 
         Returns:
@@ -366,6 +367,7 @@ class MLPClassifier(BaseModel):
         self.net.eval()
         correct = 0.0
 
+        predictions = []
         # Disable gradient calculation
         with torch.no_grad():
             for inputs, labels in loader:
@@ -374,17 +376,13 @@ class MLPClassifier(BaseModel):
                 # Forward pass
                 outputs = self.net(inputs)
                 _, predicted = torch.max(outputs.data, 1)
-                # Calculate the number of correct predictions
-                correct += (predicted == labels).sum().item()
+                # Extend the list of predictions
+                predictions.extend(predicted.cpu().numpy())
 
         # Set the network back to training mode
         self.net.train()
 
-        # Calculate accuracy
-        correct /= X_.shape[0]
-
-        print(f'Accuracy: {correct:.4f}')
-        return correct
+        return accuracy_score(y_, predictions)
 
     def count_param(self):
         r"""Print the network structure and output the number of network parameters."""
