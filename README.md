@@ -173,7 +173,7 @@ clf.predict(X_test)
 
 
 
-There are many hyperparameters in tnlearn that can be debugged, making the neural network performance more superior. Please see the  [API documentation](#API documentation) for specific usage.
+There are many hyperparameters in tnlearn that can be debugged, making the neural network performance more superior. Please see the  [API documentation](#API-documentation) for specific usage.
 
 
 
