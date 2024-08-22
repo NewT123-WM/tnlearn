@@ -11,29 +11,19 @@
 
 # Quick links
 
-* [Motivation](#Motivation)
-
-* [Features](#features)
-
-* [Overview](#Overview)
-
-* [Benchmarks](#Benchmarks)
-
-* [Resource](#Resource)
-
-* [Dependences](#Dependences)
-
-* [Install](#install)
-
-* [Quick start](#Quick-start)
-
-* [API documentation](#API-documentation)
-
-* [Citation](#citation)
-
-* [The Team](#The-Team)
-
-* [License](#License)
+- [Quick links](#quick-links)
+- [Motivation](#motivation)
+- [Features](#features)
+- [Overview](#overview)
+- [Benchmarks](#benchmarks)
+- [Resource](#resource)
+- [Dependences](#dependences)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [API documentation](#api-documentation)
+- [Citation](#citation)
+- [The Team](#the-team)
+- [License](#license)
 
   
 
@@ -160,6 +150,31 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
 # A vectorized symbolic regression algorithm is used to generate task-based neurons.
 neuron = VecSymRegressor()
+neuron.fit(X_train, y_train)
+
+# Build neural network using task-based neurons and train it.
+clf = MLPRegressor(neurons=neuron.neuron，
+                   layers_list=[50,30,10]) #Specify the structure of the hidden layers in the MLP.
+clf.fit(X_train, y_train)
+
+# Predict
+clf.predict(X_test)
+```
+
+Another quick example to show you how to use polynomial tensor regressor to build neurons:
+
+```python
+from tnlearn import PolynomialTensorRegression
+from tnlearn import MLPRegressor
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+
+# Generate data.
+X, y = make_regression(n_samples=200, random_state=1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
+
+# A polynomial tensor regressor is used to generate task-based neurons.
+neuron = PolynomialTensorRegression()
 neuron.fit(X_train, y_train)
 
 # Build neural network using task-based neurons and train it.
