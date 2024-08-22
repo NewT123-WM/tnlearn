@@ -22,5 +22,5 @@ from tnlearn.mlpclassifier import MLPClassifier
 from tnlearn.preprocessing import DataPreprocessor
 from tnlearn.base import BaseModel
 from tnlearn.base1 import BaseModel1
-
+from tnlearn.Poly_tensor_regressor import PolynomialTensorRegression
 
