@@ -26,8 +26,8 @@ class PolynomialTensorRegression(nn.Module):
     """
 
     def __init__(self,
-                 decomp_rank,
-                 poly_order,
+                 decomp_rank = 3,
+                 poly_order = 5,
                  method='cp',
                  net_dims=(64, 32),
                  reg_lambda_w=0.01,
