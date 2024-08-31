@@ -21,20 +21,21 @@ class PolynomialTensorRegression(nn.Module):
             reg_lambda_w: Regularization parameter for W tensor.
             reg_lambda_c: Regularization parameter for C coefficients.
             num_epochs (int): Number of training iterations.
-            learning_rate (int): Learning rate.
+            learning_rate (int): Learning rate.  
             batch_size (int): Number of samples per batch.
     """
 
     def __init__(self,
-                 decomp_rank = 3,
-                 poly_order = 5,
+                 decomp_rank,
+                 poly_order,
                  method='cp',
                  net_dims=(64, 32),
                  reg_lambda_w=0.01,
                  reg_lambda_c=0.01,
                  num_epochs=100,
                  learning_rate=0.001,
-                 batch_size=64):
+                 batch_size=64,
+                 problem_type='regression'):
 
         super(PolynomialTensorRegression, self).__init__()
         self.decomp_rank = decomp_rank
@@ -45,6 +46,7 @@ class PolynomialTensorRegression(nn.Module):
         self.reg_lambda_c = reg_lambda_c
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
+        self.problem_type = problem_type
         self.batch_size = batch_size
         self.C = nn.ParameterList(
             [nn.Parameter(torch.randn(1)) for _ in range(poly_order)])
@@ -101,6 +103,16 @@ class PolynomialTensorRegression(nn.Module):
             input_dim = dim
         layers.append(nn.Linear(input_dim, 1))
         return nn.Sequential(*layers)
+    
+    def determine_loss_fn(self, y):
+        if self.problem_type == 'regression':
+            return nn.MSELoss()
+        else:
+            num_classes = len(torch.unique(y))
+            if num_classes == 2:
+                return nn.BCEWithLogitsLoss()  # 二分类使用BCEWithLogitsLoss
+            else:
+                return nn.CrossEntropyLoss()  # 多分类使用CrossEntropyLoss
 
     def tucker_tensor_reconstruct(self, core_tensor, u_factors):
         r"""
@@ -203,9 +215,8 @@ class PolynomialTensorRegression(nn.Module):
         """
         input_dim = np.prod(X.shape[1:])
         self.initialize_factor_u(input_dim)
-
+        loss_fn = self.determine_loss_fn(y) 
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
-        criterion = nn.MSELoss()
         X_tensor = torch.tensor(X, dtype=torch.float32)
         y_tensor = torch.tensor(y, dtype=torch.float32).view(-1)
 
@@ -222,7 +233,7 @@ class PolynomialTensorRegression(nn.Module):
             for batch_x, batch_y in dataloader:
                 optimizer.zero_grad()
                 outputs, reg_loss = self.forward(batch_x)
-                loss = criterion(outputs, batch_y) + reg_loss
+                loss = loss_fn(outputs, batch_y) + reg_loss
                 loss.backward()
                 epoch_loss += loss.item()
                 optimizer.step()
