@@ -6,6 +6,21 @@ import matplotlib.pyplot as plt
 from typing import Optional
 from itertools import product
 from torch.optim.lr_scheduler import CosineAnnealingLR
+import random
+
+def random_seed(seed):
+    r"""Set the random seed for reproducibility of experiments.
+
+    Args:
+        seed: Random seed.
+    """
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
 
 class PolyTensorRegression(nn.Module):
@@ -13,7 +28,7 @@ class PolyTensorRegression(nn.Module):
                  rank,
                  poly_order,
                  method='cp',
-                 reg_lambda_w=0.1,
+                 reg_lambda_w=0.01,
                  reg_lambda_c=0.05,
                  num_epochs=100,
                  learning_rate=0.001,
@@ -21,8 +36,10 @@ class PolyTensorRegression(nn.Module):
                  task_type='regression',
                  num_classes: Optional[int] = None,
                  device: Optional[torch.device] = None,
-                 track_callback = None):
+                 track_callback = None,
+                 random_state: Optional[int] = None):
         super(PolyTensorRegression, self).__init__()
+        random_seed(random_state)
         self.rank = rank
         self.poly_order = poly_order
         self.method = method      
@@ -37,6 +54,8 @@ class PolyTensorRegression(nn.Module):
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.C = nn.ParameterList([nn.Parameter(torch.randn(1)).to(self.device) for _ in range(poly_order)])
         self.beta = nn.Parameter(torch.randn(1).to(self.device))
+        # Add a parameter for the sine term
+        self.C_sin = nn.Parameter(torch.randn(1).to(self.device))
         self.neuron = None
         self.weight_scalars = {}
         self.network = None     
@@ -59,7 +78,7 @@ class PolyTensorRegression(nn.Module):
                 self.U.append(U_i)
         elif self.method == 'tucker':
             for idx, core in enumerate(self.core_tensors):
-                order = idx + 1 
+                order = idx + 1  # Core tensor idx corresponds to polynomial order
                 U_i = nn.ParameterList([nn.Parameter(torch.randn(input_dim, core.shape[dim], device=self.device))
                                       for dim in range(order)])
                 self.U.append(U_i)
@@ -110,14 +129,13 @@ class PolyTensorRegression(nn.Module):
 
         for j in range(self.poly_order):
             order = j + 1
-            order_factor = order**2
+            #order_factor = order**2
             if self.method == 'cp':
                 factors = self.U[j]
                 term = self.compute_term_cp(X, factors, order)
-                # Regularization: mean L1 of all factors
                 factor_params = sum([u.numel() for u in factors])
                 reg_term = sum([torch.abs(u).sum() for u in factors]) / factor_params
-                reg_loss_w += self.reg_lambda_w * reg_term #* order_factor
+                reg_loss_w += self.reg_lambda_w * reg_term 
             elif self.method == 'tucker':
                 core = self.core_tensors[j]
                 factors = self.U[j]
@@ -126,12 +144,15 @@ class PolyTensorRegression(nn.Module):
                 factor_params = sum([u.numel() for u in factors])
                 total_params = core_params + factor_params
                 reg_term = (torch.abs(core).sum() + sum([torch.abs(u).sum() for u in factors])) / total_params
-                reg_loss_w += self.reg_lambda_w * reg_term #* order_factor
+                reg_loss_w += self.reg_lambda_w * reg_term 
 
             term = self.C[j] * term
             result = result + term
 
-        reg_loss_c = self.reg_lambda_c * torch.stack([c.abs().sum() for c in self.C]).sum()
+        sine_term = self.C_sin * torch.sin(X).sum(dim=1)
+        result = result + sine_term
+
+        reg_loss_c = self.reg_lambda_c * (torch.stack([c.abs().sum() for c in self.C]).sum() + self.C_sin.abs().sum())
         total_reg = reg_loss_w + reg_loss_c
 
         if self.task_type == 'classification':
@@ -159,8 +180,8 @@ class PolyTensorRegression(nn.Module):
             optimizer, 
             T_max=self.num_epochs 
         )
-        dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor) # type: ignore
-        dataloader = torch.utils.data.DataLoader(dataset, self.batch_size, shuffle=True) # type: ignore
+        dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor)
+        dataloader = torch.utils.data.DataLoader(dataset, self.batch_size, shuffle=True)
         losses = []
 
         for epoch in range(self.num_epochs):
@@ -188,73 +209,45 @@ class PolyTensorRegression(nn.Module):
             plt.plot(losses)
             plt.show()
 
-    def get_significant_polynomial(self, return_full=False):
-        w_norms = []
-        for j in range(self.poly_order):
-            if self.method == 'cp':
-                factors = self.U[j]
-                factor_norms = 1.0
-                for factor in factors:
-                    norms = torch.norm(factor, p=2, dim=0)  
-                    factor_norms *= norms.mean() 
-                w_norms.append(factor_norms.item()) # type: ignore
-            elif self.method == 'tucker':
-                factors = self.U[j]
-                core = self.core_tensors[j]
-                factor_norms = 1.0
-                for factor in factors:
-                    norms = torch.norm(factor, p=2, dim=0)
-                    factor_norms *= norms.mean()
-                core_norm = torch.norm(core)
-                w_norms.append((factor_norms * core_norm).item())
-        
-        adjusted_c_values = [c.item() * w_norms[i] for i, c in enumerate(self.C)]
-        def format_term(value, power=0):
-            if power == 0:  # 常数项
-                if value >= 0:
-                    return f'{value:.4f}'
-                else:
-                    return f'- {abs(value):.4f}'
-            else:  
-                if value >= 0:
-                    return f'+ {value:.4f} @ x**{power}'
-                else:
-                    return f'- {abs(value):.4f} @ x**{power}'
+    def get_dynamic_threshold(self):
+        all_c_values = [c.item() for c in self.C] + [self.C_sin.item()]
+        mean_val = np.mean(np.abs(all_c_values))
+        std_val = np.std(np.abs(all_c_values))
+        return mean_val   #std_val
+
+    def get_significant_polynomial(self):
+        threshold = self.get_dynamic_threshold()
+        threshold = max(threshold, 0)
+        significant_terms = []
 
         beta_value = self.beta.item()
-        full_terms = [format_term(beta_value)]
-        for i, adjusted_c in enumerate(adjusted_c_values):
-            full_terms.append(format_term(adjusted_c, i+1))
-        
-        full_polynomial = ' '.join(full_terms)
-        
-        if return_full:
-            return full_polynomial
- 
-        threshold = self.get_dynamic_threshold_for_adjusted_c([abs(c) for c in adjusted_c_values])
-        significant_terms = []
-        
         if abs(beta_value) > threshold:
-            significant_terms.append(format_term(beta_value))
+            if beta_value >= 0:
+                significant_terms.append(f'{beta_value:.4f}')
+            else:
+                significant_terms.append(f'- {abs(beta_value):.4f}')
+
+        for i, c in enumerate(self.C):
+            c_value = c.item()
+            if abs(c_value) > threshold:
+                if c_value >= 0:
+                    term = f'+ {c_value:.4f} @ x**{i + 1}'
+                else:
+                    term = f'- {abs(c_value):.4f} @ x**{i + 1}'
+                significant_terms.append(term)
         
-        for i, adjusted_c in enumerate(adjusted_c_values):
-            if abs(adjusted_c) > threshold:
-                significant_terms.append(format_term(adjusted_c, i+1))
-        
-        significant_polynomial = ' '.join(significant_terms)
-        if not significant_terms:
-            significant_polynomial = '0'
-        
-        return {
-            'full': full_polynomial,
-            'significant': significant_polynomial
-        }
-    
-    def get_dynamic_threshold_for_adjusted_c(self, adjusted_c_values):
-        if not adjusted_c_values:
-            return 0
-        max_val = max(adjusted_c_values)
-        return max_val * 0.4  # adjust this parameter to control the threshold, higher value means less terms will be included
+        c_sin_value = self.C_sin.item()
+        if abs(c_sin_value) > threshold:
+            if c_sin_value >= 0:
+                term = f'+ {c_sin_value:.4f} @ sin(x)'
+            else:
+                term = f'- {abs(c_sin_value):.4f} @ sin(x)'
+            significant_terms.append(term)
+
+        polynomial = ' '.join(significant_terms)
+        if not polynomial:
+            polynomial = '0'
+        return polynomial
 
     def fit(self, X, y, view_training_process=False):
         if not isinstance(X, torch.Tensor):
@@ -268,7 +261,7 @@ class PolyTensorRegression(nn.Module):
             y_tensor = y.to(self.device)
 
         input_dim = np.prod(X_tensor.shape[1:])
-        if self.task_type == 'classification' or self.num_classes is None:
+        if self.task_type == 'classification':
             self.num_classes = len(torch.unique(y_tensor))
             self.network = self.build_network(1)
 
