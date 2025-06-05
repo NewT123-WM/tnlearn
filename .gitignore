@@ -87,3 +87,11 @@ yarn-error.log*
 # System
 Thumbs.db
 Desktop.ini
+
+
+# Node / JS / Git
+package.json
+package-lock.json
+changelog-option.js
+commitlint.config.js
+.husky/
