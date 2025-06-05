@@ -1,0 +1,17 @@
+[git]
+filter_commits = true
+tag_pattern = "v[0-9].*"
+
+[cli]
+output = "CHANGELOG.md"
+
+[changelog]
+header = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n"
+
+[commit_types]
+feat = { changelog_title = "🚀 Features" }
+fix = { changelog_title = "🐛 Bug Fixes" }
+refactor = { changelog_title = "🔨 Refactoring" }
+perf = { changelog_title = "⚡ Performance Improvements" }
+docs = { changelog_title = "📚 Documentation" }
+chore = { changelog_title = "🧹 Maintenance" }
