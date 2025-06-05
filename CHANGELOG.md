@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Correct environment dependencies
+- Correct dependencies
 
 ### 💼 Other
 
@@ -30,6 +31,7 @@ All notable changes to this project will be documented in this file.
 - Renew README
 - Upload notebook of experiment
 - Generate changelog
+- Correct environment dependencies
 
 ### ⚡ Performance
 
