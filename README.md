@@ -126,13 +126,8 @@ Tnlearn and its dependencies can be easily installed with pip:
 pip install tnlearn
 ```
 
-Tnlearn and its dependencies can be easily installed with conda:
-
-```shell
-conda install -c tnlearn
-```
-
 Tnlearn and its dependencies can be easily installed locally:
+
 1. download the package
 2. create a new virtual environment
 3. enter the same-level directory of `setup.py`
