@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - Refactoring code
 - Refactoring code
 - Refactoring code
+- Refatoring init.py
 
 ### 📚 Documentation
 
@@ -32,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - Upload notebook of experiment
 - Generate changelog
 - Correct environment dependencies
+- Update changelog for v0.1.0
 
 ### ⚡ Performance
 
