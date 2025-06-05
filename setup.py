@@ -1,10 +1,23 @@
+import os
+import re
 from setuptools import setup, find_packages
-import tnlearn
+
+
+def read_version():
+    version_file = os.path.join("tnlearn", "__init__.py")
+    with open(version_file, encoding="utf-8") as f:
+        for line in f:
+            match = re.match(r"^__version__ = ['\"]([^'\"]*)['\"]", line)
+            if match:
+                return match.group(1)
+    raise RuntimeError("Unable to find version string.")
+
+VERSION = read_version()
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-VERSION = tnlearn.__version__
+
 
 setup(
     name="tnlearn",
