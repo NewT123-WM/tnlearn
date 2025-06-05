@@ -142,6 +142,12 @@ Tnlearn and its dependencies can be easily installed locally:
 pip install -e .
 ```
 
+or
+
+```shell
+pip install -e . --no-deps
+pip install -r requirements.txt
+```
 
 # Quick start
 

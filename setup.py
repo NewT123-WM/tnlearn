@@ -21,18 +21,19 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.8',
+    python_requires='~=3.8',
+    
     install_requires=[
-        'torch>=2.1.0',
-        'numpy>=1.26.4',
-        'scikit-learn>=1.4.1.post1',
-        'pandas>=2.2.1',
-        'sympy>=1.12',
-        'tqdm>=4.66.2',
-        'matplotlib>=3.8.3',
-        'ipython>=8.18.1',
-        'torchinfo>=1.8.0',
-        'h5py>=3.10.0',
-        'setuptools>=68.2.2'
-    ],
+    'torch~=2.1.0',             
+    'numpy~=1.26.0',
+    'scikit-learn~=1.4.0',
+    'pandas~=2.2.0',
+    'sympy~=1.12',
+    'tqdm~=4.66.0',
+    'matplotlib~=3.8.0',
+    'ipython~=8.18.0',
+    'torchinfo~=1.8.0',
+    'h5py~=3.10.0',
+    'setuptools>=40.0.0'  
+]
 )
