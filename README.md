@@ -1,13 +1,11 @@
+
 <div align="center">
   <img src="assets/logo.png" width="100%" />
 </div>
 
-
- Tnlearn is an open source python library. It is based on the symbolic regression algorithm to generate task-based neurons, and then utilizes diverse neurons to build neural networks.
+Tnlearn is an open source python library. It is based on the symbolic regression algorithm to generate task-based neurons, and then utilizes diverse neurons to build neural networks.
 
 ![Static Badge](https://img.shields.io/badge/Python-3.9%2B-brightgreen.svg) ![Static Badge](https://img.shields.io/badge/License-Apache--2.0-blue.svg) ![Static Badge](https://img.shields.io/badge/pypi-v0.1.0-orange?logo=PyPI) ![GitHub Repo stars](https://img.shields.io/github/stars/NewT123-WM/tnlearn?style=flat&logo=github)  
-
-
 
 # Quick links
 
@@ -25,8 +23,6 @@
 - [The Team](#the-team)
 - [License](#license)
 
-  
-
 # Motivation
 
 * **NuronAI inspired** In the past decade, successful networks have primarily used a single type of neurons within novel architectures, yet recent deep learning studies have been inspired by the diversity of human brain neurons, leading to the proposal of new artificial neuron designs.
@@ -35,31 +31,15 @@
 
 * **Enhanced Representation** Since there are no universally applicable neurons, task-based neurons could enhance feature representation ability within the same structure, due to the intrinsic inductive bias for the task.
 
-
-
 # Features
 
 * Vectorized symbolic regression is employed to find optimal formulas that fit input data.
 
 * We parameterize the obtained elementary formula to create learnable parameters, serving as the neuron's aggregation function.
 
-
-
 # Overview
 
-
-
 A nice picture describing the structure of tnlearn will be produced here.
-
-
-
-
-
-
-
-
-
-
 
 # Benchmarks
 
@@ -75,8 +55,6 @@ We select several advanced machine learning methods for comparison.
 | FT-Transformer  | [NeurIPS 2021](https://proceedings.neurips.cc/paper_files/paper/2021/hash/9d86d83f925f2149e9edb0ac3b49229c-Abstract.html) | Implemented by [widedeep](https://github.com/jrzaurin/pytorch-widedeep) |
 |     DANETs      | [AAAI 2022](https://ojs.aaai.org/index.php/AAAI/article/view/20309) |  [Adopt official code](https://github.com/whatashot/danet)   |
 
-
-
 We test multiple advanced machine learning methods on two sets of real-world data. The test results (MSE) are shown in the following table:
 
 |       Method       | [Particle collision](https://www.kaggle.com/datasets/fedesoriano/cern-electron-collision-data) | [Asteroid prediction](https://www.kaggle.com/datasets/basu369victor/prediction-of-<br/>asteroid-diameter) |
@@ -90,8 +68,6 @@ We test multiple advanced machine learning methods on two sets of real-world dat
 |       DANETs       |                      $0.0076\pm0.0009$                       |                      $0.1709\pm0.1859$                       |
 | Task-based Network |                  $\mathbf{0.0016\pm0.0005}$                  |                  $\mathbf{0.0513\pm0.0551}$                  |
 
-
-
 # Resource
 
 Here is a resource summary for neuronal diversity in artificial networks.
@@ -103,9 +79,6 @@ Here is a resource summary for neuronal diversity in artificial networks.
 | [Polynomial Network](https://github.com/grigorisg9gr/polynomial_nets) |                             Code                             | This repertoire shows how to build a deep polynomial network and sparsify it with tensor decomposition. |
 |     [Dendrite](http://www.dendrites.org/dendrites-book)      |                             Book                             | A comprehensive book covering all aspects of dendritic computation. |
 
-
-
-
 # Dependences
 
 You should ensure that the version of pytorch corresponds to the version of cuda so that gpu acceleration can be guaranteed. Here is a reference version
@@ -115,8 +88,6 @@ You should ensure that the version of pytorch corresponds to the version of cuda
 `cuda >= 12.1`
 
 Other major dependencies are automatically installed when installing tnlearn.
-
-
 
 # Install
 
@@ -196,17 +167,49 @@ clf.fit(X_train, y_train)
 clf.predict(X_test)
 ```
 
+## DrSR: LLM-based Symbolic Regression
 
+Discover mathematical equations directly from data using large language models. DrSR combines LLM's scientific reasoning with gradient‑free optimization to uncover interpretable symbolic expressions.
 
-There are many hyperparameters in tnlearn that can be debugged, making the neural network performance more superior. Please see the  [API documentation](#API-documentation) for specific usage.
+### Quick Start
 
+```python
+from tnlearn import LLMSymRegressor
+import numpy as np
 
+# Generate sample data
+X = np.random.randn(200, 2)
+y = 3*X[:,0] + 0.5*np.sin(X[:,1]) + 0.1*np.random.randn(200)
+
+# Configure LLM (supporting deepseek, siliconflow, ollama, etc.)
+llm_config = {'model': 'deepseek/deepseek-chat'}
+# Add environment variables for the API key:
+# export DEEPSEEK_API_KEY=<your_api_key>
+
+# Train
+reg = LLMSymRegressor(llm_config=llm_config, max_iterations=5)
+reg.fit(X, y)
+
+# View discovered equation
+print(reg.best_equation_)   # e.g., "return params[0]*x0 + params[1]*np.sin(x1) + params[2]"
+
+# Predict
+y_pred = reg.predict(X)
+```
+
+### Supported LLM Providers
+
+| Provider | Environment Variable | Example `model` |
+|----------|---------------------|-----------------|
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek/deepseek-chat` |
+| SiliconFlow | `SILICONFLOW_API_KEY` | `siliconflow/Qwen/Qwen3-8B` |
+| Ollama (local) | – | `ollama/llama3.1:8b` |
+| BLT | `BLT_API_KEY` | `blt/gpt-4` |
+| CSTCloud | `CSTCLOUD_API_KEY` | `cstcloud/gpt-oss-120b` |
 
 # API documentation
 
 Here's our official API documentation, available on [Read the Docs](https://tnlearn-doc.readthedocs.io/en/latest/index.html).
-
-
 
 # Citation
 
@@ -221,17 +224,10 @@ If you find Tnlearn useful, please cite it in your publications.
 }
 ```
 
-
-
-
-
 # The Team
 
-Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), and [Fenglei Fan](https://github.com/FengleiFan).
-
-
+Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), and [Fenglei Fan](https://github.com/FengleiFan).
 
 # License
 
 Tnlearn is released under Apache License 2.0.
-
