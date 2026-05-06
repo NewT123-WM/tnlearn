@@ -24,3 +24,18 @@ from tnlearn.base import BaseModel
 from tnlearn.base1 import BaseModel1
 from tnlearn.poly_regressor import PolyTensorRegression
 
+# 新增 DrSR 模块
+from tnlearn.drsr import LLMSymRegressor, discover_neuron_formula
+
+# 更新 __all__ 列表
+__all__ = [
+    'VecSymRegressor',
+    'MLPRegressor',
+    'MLPClassifier',
+    'DataPreprocessor',
+    'BaseModel',
+    'BaseModel1',
+    'PolyTensorRegression',
+    'LLMSymRegressor',           # 新增
+    'discover_neuron_formula',   # 新增
+]
