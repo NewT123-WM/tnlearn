@@ -209,7 +209,7 @@ y_pred = reg.predict(X)
 
 # API documentation
 
-Here's our official API documentation, available on [Read the Docs](https://tnlearn-doc.readthedocs.io/en/latest/index.html).
+Here's our official API documentation, available on [Read the Docs](https://tnlearn-documentation.readthedocs.io/en/latest/index.html).
 
 # Citation
 
