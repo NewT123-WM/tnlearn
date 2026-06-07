@@ -169,32 +169,32 @@ clf.predict(X_test)
 
 ## DrSR: LLM-based Symbolic Regression
 
-Discover mathematical equations directly from data using large language models. DrSR combines LLM's scientific reasoning with gradient‑free optimization to uncover interpretable symbolic expressions.
+Discover mathematical equations from data using LLMs. DrSR combines LLM reasoning with optimization to find interpretable expressions as task‑based neurons for MLPRegressor.
 
 ### Quick Start
 
 ```python
-from tnlearn import LLMSymRegressor
-import numpy as np
+from tnlearn import LLMSymRegressor, MLPRegressor
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
 
-# Generate sample data
-X = np.random.randn(200, 2)
-y = 3*X[:,0] + 0.5*np.sin(X[:,1]) + 0.1*np.random.randn(200)
+# Generate data.
+X, y = make_regression(n_samples=200, random_state=1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
 # Configure LLM (supporting deepseek, siliconflow, ollama, etc.)
-llm_config = {'model': 'deepseek/deepseek-chat'}
-# Add environment variables for the API key:
-# export DEEPSEEK_API_KEY=<your_api_key>
+llm_config = {'model': 'deepseek/deepseek-chat'}  # Set environment variable DEEPSEEK_API_KEY
 
-# Train
-reg = LLMSymRegressor(llm_config=llm_config, max_iterations=5)
-reg.fit(X, y)
+# Discover task-based neuron via LLM symbolic regression.
+neuron = LLMSymRegressor(llm_config=llm_config, max_iterations=5)
+neuron.fit(X_train, y_train)
 
-# View discovered equation
-print(reg.best_equation_)   # e.g., "return params[0]*x0 + params[1]*np.sin(x1) + params[2]"
+# Build neural network using the discovered neuron and train it.
+clf = MLPRegressor(neurons=neuron.neuron, layers_list=[50,30,10])
+clf.fit(X_train, y_train)
 
 # Predict
-y_pred = reg.predict(X)
+clf.predict(X_test)
 ```
 
 ### Supported LLM Providers
