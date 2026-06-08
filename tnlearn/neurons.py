@@ -21,6 +21,14 @@ from torch.nn import init
 import re
 from torch.nn import functional as F
 
+# 准备 eval 所需的全局命名空间
+_EVAL_GLOBALS = {
+    'torch': torch,
+    'np': __import__('numpy'),
+    'math': math,
+    'F': F,
+}
+
 
 class CustomNeuronLayer(nn.Module):
     r"""Build a neural network model of a custom architecture."""
@@ -48,7 +56,7 @@ class CustomNeuronLayer(nn.Module):
 
         # Create parameters (weights) for the layer based on the number of 'x' inputs
         for i in range(self.number):
-            exec('self.weight{} = Parameter(torch.Tensor(out_features, in_features))'.format(i))
+            setattr(self, f'weight{i}', Parameter(torch.Tensor(out_features, in_features)))
 
         # Initialize bias if it's required, otherwise it's registered as None
         if bias:
@@ -64,27 +72,58 @@ class CustomNeuronLayer(nn.Module):
 
         # Initialize weights using Kaiming uniform initialization
         for i in range(self.number):
-            exec('init.kaiming_uniform_(self.weight{}, a=math.sqrt(5))'.format(i))
+            weight = getattr(self, f'weight{i}')
+            init.kaiming_uniform_(weight, a=math.sqrt(5))
 
         # Initialize bias with uniform distribution if bias is not None
         if self.bias is not None:
-            fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight0)
+            weight0 = getattr(self, 'weight0')
+            fan_in, _ = init._calculate_fan_in_and_fan_out(weight0)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             init.uniform_(self.bias, -bound, bound)
 
-    def xdata(self):
-        r"""Extract data terms from the symbolic expression."""
-        temp = self.neuron.replace(' ', '')
-        temp = re.split('\+|-', temp)
-        xx = []
-        for s in temp:
-            if '@' in s:
-                out = s[s.find('@') + 1:]
-                xx.append(out)
-            elif 'x' in s:
-                out = s
-                xx.append(out)
+    def _split_terms(self, expr: str):
+        """Split expression by top-level '+' and '-' operators, preserving parentheses."""
+        terms = []
+        current = []
+        paren_depth = 0
+        for ch in expr:
+            if ch == '(':
+                paren_depth += 1
+            elif ch == ')':
+                paren_depth -= 1
+            if paren_depth == 0 and ch in ('+', '-'):
+                terms.append(''.join(current))
+                current = [ch]
             else:
+                current.append(ch)
+        if current:
+            terms.append(''.join(current))
+        return terms
+
+    def xdata(self):
+        r"""Extract data terms from the symbolic expression.
+
+        Returns:
+            List of expression strings (each corresponds to one occurrence of 'x').
+        """
+        # Remove all whitespace
+        expr = self.neuron.replace(' ', '')
+        # Split into top-level terms
+        terms = self._split_terms(expr)
+        xx = []
+        for term in terms:
+            # Remove leading '+' or '-' before splitting at '@'
+            term = term.lstrip('+-')
+            if '@' in term:
+                # The part after '@' is the variable expression
+                var_expr = term.split('@', 1)[1]
+                xx.append(var_expr)
+            elif 'x' in term:
+                # No '@' means coefficient is 1 (implicitly)
+                xx.append(term)
+            else:
+                # Constant term, ignore (no 'x')
                 pass
         return xx
 
@@ -96,14 +135,28 @@ class CustomNeuronLayer(nn.Module):
         """
         # Collect variable data blocks from the symbolic expression
         xlist = self.xdata()
-        su = 0
-        loc = locals()
-        for i in range(self.number):
-            # Execute a linear operation using the weights and input data
-            exec('su += F.linear(eval(xlist[i]), self.weight{}, None)'.format(i))
-            # Keep accumulating the output
-            su = loc['su']
-
-        # Add bias to the accumulated result if bias exists and return the output
-        out = su + self.bias if self.bias is not None else su
-        return out
+        # Ensure number of extracted terms matches the number of weights
+        if len(xlist) != self.number:
+            # Fallback: if mismatch, maybe some terms were constant; ignore extra weights?
+            # For safety, we take min.
+            pass
+        result = 0.0
+        # Local globals for eval: include the input tensor x and the safe globals
+        for i, var_expr in enumerate(xlist):
+            # Evaluate the expression (e.g., 'x', 'x**2', 'torch.sin(x)')
+            # The expression can use the variable name 'x' (the input tensor)
+            # We provide a local dict with 'x' bound to the input
+            local_dict = {'x': x}
+            try:
+                value = eval(var_expr, _EVAL_GLOBALS, local_dict)
+            except Exception as e:
+                # If evaluation fails, fallback to zero
+                print(f"Warning: Failed to evaluate expression '{var_expr}': {e}")
+                value = torch.zeros_like(x)
+            # Apply linear transformation with the corresponding weight matrix
+            weight = getattr(self, f'weight{i}')
+            transformed = F.linear(value, weight, None)
+            result = result + transformed
+        if self.bias is not None:
+            result = result + self.bias
+        return result

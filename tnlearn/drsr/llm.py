@@ -5,7 +5,7 @@ import os
 当前支持：deepseek、siliconflow、ollama、blt、cstcloud（科技云）。
 """
 import requests
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 
 # 单次实验级别的全局 token 统计（需由调用方在实验开始前手动 reset）
 GLOBAL_TOKENS = {
@@ -33,16 +33,22 @@ class LLMClient:
         'total': 0,
     }
 
-    def __init__(self, api_key: str, model: str, base_url: str, verbose: bool = False):
+    def __init__(self, api_key: str, model: str, base_url: str, verbose: Union[bool, int] = False):
         """
         初始化 LLM 客户端。
 
         :param api_key: API 密钥
         :param model: 模型名称
         :param base_url: API 的基础 URL
+        :param verbose: 控制输出详细程度，0=静默，1=基本信息，2=详细调试；也可使用 bool（True→1，False→0）
         """
-        self.verbose = verbose
-        if self.verbose:
+        # Normalize verbose to int (0,1,2)
+        if isinstance(verbose, bool):
+            self.verbose = 1 if verbose else 0
+        else:
+            self.verbose = max(0, min(2, int(verbose)))
+
+        if self.verbose >= 2:
             print(f"[DEBUG LLMClient.__init__] Received api_key: {api_key[:10]}... (len={len(api_key)})")
         self.api_key = api_key
         self.model = model
@@ -83,7 +89,7 @@ class LLMClient:
         return 'llm'
 
     def chat(self, messages: List[Dict[str, str]]) -> dict:
-        if self.verbose:
+        if self.verbose >= 2:
             print(f"[DEBUG LLMClient.chat] Using api_key: {self.api_key[:10]}... (len={len(self.api_key)})")
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -120,20 +126,15 @@ class LLMClient:
         except Exception:
             pass
 
-        # 计时（可按需启用）
-        # start_time = time.time()
         try:
             response = requests.post(request_url, headers=headers, json=payload, timeout=120)
-            # 状态码错误先抛出异常（下方 except 会打印详情）
             response.raise_for_status()
-            # 尝试解析 JSON；失败时打印前 500 字符文本
             try:
                 response_data = response.json()
             except ValueError:
                 print("API 响应无法解析为 JSON，原始文本预览:", response.text[:500])
                 raise
 
-            # OpenAI 兼容接口错误格式：{"error": {...}}
             if isinstance(response_data, dict) and 'error' in response_data:
                 err = response_data.get('error') or {}
                 print("API 返回错误:", {
@@ -142,9 +143,7 @@ class LLMClient:
                     'message': err.get('message') or err,
                 })
                 raise requests.exceptions.HTTPError(f"API error: {err}")
-            # end_time = time.time()
 
-            # 保护性判断：缺少 choices 时打印提示
             if 'choices' not in response_data or not response_data['choices']:
                 print("API 响应不包含 choices 字段或为空：", str(response_data)[:500])
                 raise requests.exceptions.HTTPError("API response missing choices")
@@ -167,7 +166,6 @@ class LLMClient:
             self.tokens['reasoning'] += reasoning_tokens
             self.tokens['total'] += total_tokens
 
-            # 更新单次实验全局统计
             try:
                 GLOBAL_TOKENS['thinking'] += int(reasoning_tokens)
                 GLOBAL_TOKENS['content'] += int(completion_tokens - reasoning_tokens)
@@ -175,7 +173,7 @@ class LLMClient:
             except Exception:
                 pass
 
-            # 实例级累计与打印
+            # 实例级累计与打印 (仅当 verbose >= 2 时才打印详细信息)
             try:
                 self._call_index += 1
                 self._cum_tokens['prompt'] += int(prompt_tokens)
@@ -183,17 +181,17 @@ class LLMClient:
                 self._cum_tokens['content'] += int(completion_tokens - reasoning_tokens)
                 self._cum_tokens['total'] += int(total_tokens)
 
-                provider = self._provider_name()
-                header = f"[{provider}][{self.model}] 第{self._call_index}次"
-                line_cur = (
-                    f"本次 tokens：prompt={int(prompt_tokens)}, thinking={int(reasoning_tokens)}, "
-                    f"content={int(completion_tokens - reasoning_tokens)}, total={int(total_tokens)}"
-                )
-                line_cum = (
-                    f"累计 tokens：prompt={self._cum_tokens['prompt']}, thinking={self._cum_tokens['thinking']}, "
-                    f"content={self._cum_tokens['content']}, total={self._cum_tokens['total']}"
-                )
-                if self.verbose:
+                if self.verbose >= 2:
+                    provider = self._provider_name()
+                    header = f"[{provider}][{self.model}] 第{self._call_index}次"
+                    line_cur = (
+                        f"本次 tokens：prompt={int(prompt_tokens)}, thinking={int(reasoning_tokens)}, "
+                        f"content={int(completion_tokens - reasoning_tokens)}, total={int(total_tokens)}"
+                    )
+                    line_cum = (
+                        f"累计 tokens：prompt={self._cum_tokens['prompt']}, thinking={self._cum_tokens['thinking']}, "
+                        f"content={self._cum_tokens['content']}, total={self._cum_tokens['total']}"
+                    )
                     print(header + "\n" + line_cur + "\n" + line_cum)
             except Exception:
                 pass
@@ -221,13 +219,16 @@ class LLMClient:
                         pass
             raise
 
+
 class DeepSeekClient(LLMClient):
-    def __init__(self, api_key: str, model: str, base_url: str = "https://api.deepseek.com", verbose: bool = False):
+    def __init__(self, api_key: str, model: str, base_url: str = "https://api.deepseek.com", verbose: Union[bool, int] = False):
         super().__init__(api_key=api_key, model=model, base_url=base_url, verbose=verbose)
 
+
 class SiliconflowClient(LLMClient):
-    def __init__(self, api_key: str, model: str, base_url: str = "https://api.siliconflow.cn/v1", verbose: bool = False):
+    def __init__(self, api_key: str, model: str, base_url: str = "https://api.siliconflow.cn/v1", verbose: Union[bool, int] = False):
         super().__init__(api_key=api_key, model=model, base_url=base_url, verbose=verbose)
+
 
 class CSTCloudClient(LLMClient):
     """CSTCloud（科技云）提供商，OpenAI Chat Completions 兼容接口。
@@ -236,24 +237,28 @@ class CSTCloudClient(LLMClient):
     使用示例：model="CSTCloud/gpt-oss-120b" 或 "CSTCloud/qwen3:235b"
     建议环境变量：CSTCLOUD_API_KEY
     """
-    def __init__(self, api_key: str, model: str, base_url: str = "https://uni-api.cstcloud.cn/v1", verbose: bool = False):
+    def __init__(self, api_key: str, model: str, base_url: str = "https://uni-api.cstcloud.cn/v1", verbose: Union[bool, int] = False):
         super().__init__(api_key=api_key, model=model, base_url=base_url, verbose=verbose)
+
 
 # 兼容旧拼写，避免历史引用报错
 SliconflowClient = SiliconflowClient
 
+
 class OllamaClient(LLMClient):
-    def __init__(self, api_key: str, model: str, base_url: str = "http://localhost:11111/v1", verbose: bool = False):
+    def __init__(self, api_key: str, model: str, base_url: str = "http://localhost:11111/v1", verbose: Union[bool, int] = False):
         super().__init__(api_key=api_key, model=model, base_url=base_url, verbose=verbose)
+
 
 class BltClient(LLMClient):
     """BLT（柏拉图）网关，OpenAI Chat Completions 兼容接口。
 
     默认基址含 /v1，路径将拼接为 /chat/completions。
     """
-    def __init__(self, api_key: str, model: str, base_url: str = None, verbose: bool = False):
+    def __init__(self, api_key: str, model: str, base_url: str = None, verbose: Union[bool, int] = False):
         base_url = base_url or os.getenv('BLT_API_BASE', 'https://api.bltcy.ai/v1')
         super().__init__(api_key=api_key, model=model, base_url=base_url, verbose=verbose)
+
 
 def parse_provider_model(model_str: str) -> Tuple[str, str]:
     """
@@ -270,9 +275,10 @@ def parse_provider_model(model_str: str) -> Tuple[str, str]:
     provider, model = model_str.split('/', 1)
     return provider.lower(), model
 
+
 class ClientFactory:
     @staticmethod
-    def from_config(config: dict, verbose: bool = False):
+    def from_config(config: dict, verbose: Union[bool, int] = False):
         """
         基于 'provider/model' 创建具体客户端。
 
@@ -306,7 +312,6 @@ class ClientFactory:
         else:
             api_key = None
 
-
         # 设置默认 base_url
         if provider == 'deepseek':
             base_url = base_url or "https://api.deepseek.com"
@@ -325,13 +330,11 @@ class ClientFactory:
             return CSTCloudClient(api_key=api_key or os.getenv('CSTCLOUD_API_KEY', ''), model=model, base_url=base_url or 'https://uni-api.cstcloud.cn/v1', verbose=verbose)
         else:
             raise ValueError(f"不支持的提供商: {provider}，请使用 'deepseek'、'siliconflow'、'blt'、'cstcloud' 或 'ollama'")
-        
 
 
 if __name__ == '__main__':
     # 确保你的 API 密钥已经设置为环境变量 SILICONFLOW_API_KEY
     # 或者直接在这里替换 "your-siliconflow-api-key"
-
 
     client = OllamaClient(api_key='', model='llama3.1:8b')
     messages = [

@@ -1,43 +1,60 @@
+"""
+Example: Using RLRegressor to discover a symbolic expression and building an MLP with it.
+
+Data is generated as: y = 4*x^2 + 3*x - 5 + sin(x) + noise.
+RLRegressor learns to select a subset of polynomial and trigonometric basis functions.
+The discovered expression is then used as a neuron formula in MLPRegressor.
+"""
+
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
+
 from tnlearn.rl_regressor import RLRegressor
+from tnlearn import MLPRegressor
 
-# ==================== 定义目标方程 ====================
-# 用户可在此修改方程（一维函数，x 为自变量）
-def target_equation(x):
-    return 2 * x**2 + 3 * x + 1
-
-# 生成数据范围及样本量
+# ============================================================================
+# 1. Generate synthetic data (mixed polynomial and trigonometric)
+# ============================================================================
+np.random.seed(1)
 n_samples = 500
-noise_std = 0.1                     # 噪声标准差
+X = np.random.uniform(-2, 2, (n_samples, 1))
+y = 4 * X[:, 0] ** 2 + 3 * X[:, 0] - 5 + np.sin(X[:, 0]) + 0.1 * np.random.randn(n_samples)
 
-X = np.random.uniform(0.5, 5, (500, 1))
-y = 2 * X.flatten()**2 + 3 * X.flatten() + 1 + np.random.normal(0, 0.1, 500)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
 
-# ==================== 划分训练/测试集 ====================
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+# ============================================================================
+# 2. Train RLRegressor to discover the underlying expression
+# ============================================================================
+rl = RLRegressor(
+    random_state=42,
+    max_episodes=200,          # Keep low for demonstration; increase for better results
+    max_power=3,
+    max_terms=3,
+    use_trigonometric=True,
+    val_split=0.2,
+    verbose=True,
 )
+rl.fit(X_train, y_train)
 
-# ==================== 训练 RL 回归器 ====================
-rl_reg = RLRegressor(
-    max_length=15,
-    population_size=200,
-    n_iter=800,
-    risk_factor=0.05,         # 激进地选择 top 5% 表达式
-    learning_rate=0.0005,
-    hidden_size=128,
-    random_state=42,          
-    verbose=1,
-    patience=100,
-    optimize_constants=True,
+expr = rl.get_neuron()
+print(f"\nDiscovered expression: {expr}")
+
+# ============================================================================
+# 3. Build an MLP using the discovered neuron formula
+# ============================================================================
+mlp = MLPRegressor(
+    neurons=expr,
+    layers_list=[50, 30, 10],
+    activation_funcs='sigmoid',
+    max_iter=1000,
+    batch_size=64,
+    lr=0.001,
+    random_state=1,
+    visual=False,
 )
-rl_reg.fit(X_train, y_train)
-
-# ==================== 评估与输出 ====================
-y_pred = rl_reg.predict(X_test)
+mlp.fit(X_train, y_train)
+y_pred = mlp.predict(X_test)
 r2 = r2_score(y_test, y_pred)
 
-print(f"\nR² 分数 (测试集): {r2:.4f}")
-print(f"发现的表达式: {rl_reg.get_expression()}")
+print(f"\nMLP with discovered neuron - Test R²: {r2:.4f}")
