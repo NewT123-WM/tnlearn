@@ -27,6 +27,9 @@ from tnlearn.poly_regressor import PolyTensorRegression
 from tnlearn.drsr import LLMSymRegressor, discover_neuron_formula
 from tnlearn.rl_regressor import RLRegressor
 
+from tnlearn.modules import *
+from tnlearn import modules
+
 # 更新 __all__ 列表
 __all__ = [
     'VecSymRegressor',
@@ -36,7 +39,10 @@ __all__ = [
     'BaseModel',
     'BaseModel1',
     'PolyTensorRegression',
-    'LLMSymRegressor',           # 新增
-    'discover_neuron_formula',   # 新增
-    'RLRegressor',              # 新增
+    'LLMSymRegressor',           
+    'discover_neuron_formula',   
+    'RLRegressor',              
 ]
+
+if hasattr(modules, '__all__'):
+    __all__.extend(modules.__all__)
