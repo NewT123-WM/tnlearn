@@ -22,4 +22,5 @@ neuron = PolyTensorRegressor(decomp_rank,
                              reg_lambda_c=0.01)
 
 neuron.fit(X,y)
+print(neuron.structure_)
 print(neuron.neuron)
