@@ -24,6 +24,8 @@ def random_seed(seed):
     Args:
         seed: Random seed.
     """
+    if not isinstance(seed, int):
+        raise TypeError("seed must be an integer")
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
