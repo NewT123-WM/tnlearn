@@ -11,8 +11,7 @@
 import torch
 import torch.nn as nn
 
-from model.TN_base import TNConvLayer
-
+from tnlearn import TNConv2d
 
 #"""Bottleneck layers. Although each layer only produces k
 #output feature-maps, it typically has many more inputs. It
@@ -34,7 +33,9 @@ class Bottleneck(nn.Module):
         self.bottle_neck = nn.Sequential(
             nn.BatchNorm2d(in_channels),
             nn.ReLU(inplace=True),
-            TNConvLayer(in_channels, inner_channel, 1, 1, 0, True),
+            # TNConv2d(in_channels, inner_channel, 1, 1, 0, True),
+            TNConv2d(in_channels, inner_channel, 1, 1, 0, 'x + torch.sin(x)', bias=True),
+            
             # nn.Conv2d(in_channels, inner_channel, kernel_size=1, bias=False),
             nn.BatchNorm2d(inner_channel),
             nn.ReLU(inplace=True),
@@ -75,11 +76,13 @@ class DenseNet(nn.Module):
         #output channels is performed on the input images."""
         inner_channels = 2 * growth_rate
 
+
         #For convolutional layers with kernel size 3×3, each
         #side of the inputs is zero-padded by one pixel to keep
         #the feature-map size fixed.
         # self.conv1 = nn.Conv2d(3, inner_channels, kernel_size=3, padding=1, bias=False)
-        self.conv1 = TNConvLayer(3, inner_channels, 3, 1, 1, True)
+        self.conv1 = TNConv2d(3, inner_channels, 3, 1, 1, 'x + torch.sin(x)', bias = True)
+
         self.features = nn.Sequential()
 
         for index in range(len(nblocks) - 1):
@@ -132,6 +135,6 @@ def densenet161():
 
 if __name__ == '__main__':
     model = tc_densenet121(10)
-    X = torch.tensor((1, 3, 32, 32), dtype=torch.float32)
+    X = torch.randn(1, 3, 32, 32)
     y = model(X)
     print(y.shape)

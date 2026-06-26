@@ -1,6 +1,4 @@
-"""senet in pytorch
-
-
+"""SENet in PyTorch with TNConv2d (symbolic expression: x + torch.sin(x))
 
 [1] Jie Hu, Li Shen, Samuel Albanie, Gang Sun, Enhua Wu
 
@@ -12,21 +10,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.TN_base import TNConvLayer
+from tnlearn.modules import TNConv2d
 
 
 class BasicResidualSEBlock(nn.Module):
-
     expansion = 1
 
     def __init__(self, in_channels, out_channels, stride, r=16):
         super().__init__()
 
+        # 标准卷积残差分支（所有卷积均为标准 nn.Conv2d）
         self.residual = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 3, stride=stride, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-
             nn.Conv2d(out_channels, out_channels * self.expansion, 3, padding=1),
             nn.BatchNorm2d(out_channels * self.expansion),
             nn.ReLU(inplace=True)
@@ -57,19 +54,26 @@ class BasicResidualSEBlock(nn.Module):
         excitation = excitation.view(residual.size(0), residual.size(1), 1, 1)
 
         x = residual * excitation.expand_as(residual) + shortcut
-
         return F.relu(x)
 
-class BottleneckResidualSEBlock(nn.Module):
 
+class BottleneckResidualSEBlock(nn.Module):
     expansion = 4
 
     def __init__(self, in_channels, out_channels, stride, r=16):
         super().__init__()
 
+        # 第一个 1×1 卷积使用自定义聚合函数，其余为标准卷积
         self.residual = nn.Sequential(
-            TNConvLayer(in_channels, out_channels, 1, 1, 0, True),
-            # nn.Conv2d(in_channels, out_channels, 1),
+            TNConv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+                symbolic_expression='x + torch.sin(x)',
+                bias=True
+            ),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
 
@@ -98,7 +102,6 @@ class BottleneckResidualSEBlock(nn.Module):
             )
 
     def forward(self, x):
-
         shortcut = self.shortcut(x)
 
         residual = self.residual(x)
@@ -108,19 +111,25 @@ class BottleneckResidualSEBlock(nn.Module):
         excitation = excitation.view(residual.size(0), residual.size(1), 1, 1)
 
         x = residual * excitation.expand_as(residual) + shortcut
-
         return F.relu(x)
 
-class SEResNet(nn.Module):
 
+class SEResNet(nn.Module):
     def __init__(self, block, block_num, class_num=100):
         super().__init__()
-
         self.in_channels = 64
 
+        # 输入预处理：使用自定义聚合函数
         self.pre = nn.Sequential(
-            TNConvLayer(3, 64, 3, 1, 1, True),
-            # nn.Conv2d(3, 64, 3, padding=1),
+            TNConv2d(
+                in_channels=3,
+                out_channels=64,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                symbolic_expression='x + torch.sin(x)',
+                bias=True
+            ),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True)
         )
@@ -144,12 +153,9 @@ class SEResNet(nn.Module):
         x = x.view(x.size(0), -1)
 
         x = self.linear(x)
-
         return x
 
-
     def _make_stage(self, block, num, out_channels, stride):
-
         layers = []
         layers.append(block(self.in_channels, out_channels, stride))
         self.in_channels = out_channels * block.expansion
@@ -160,17 +166,22 @@ class SEResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+
 def seresnet18():
     return SEResNet(BasicResidualSEBlock, [2, 2, 2, 2])
+
 
 def seresnet34():
     return SEResNet(BasicResidualSEBlock, [3, 4, 6, 3])
 
+
 def seresnet50():
     return SEResNet(BottleneckResidualSEBlock, [3, 4, 6, 3])
 
+
 def tc_seresnet101(num_class):
     return SEResNet(BottleneckResidualSEBlock, [3, 4, 23, 3], class_num=num_class)
+
 
 def seresnet152():
     return SEResNet(BottleneckResidualSEBlock, [3, 8, 36, 3])
@@ -178,6 +189,6 @@ def seresnet152():
 
 if __name__ == '__main__':
     model = tc_seresnet101(10)
-    X = torch.tensor((1, 3, 32, 32), dtype=torch.float32)
+    X = torch.randn(1, 3, 32, 32)
     y = model(X)
-    print(y.shape)
+    print(y.shape)   

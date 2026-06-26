@@ -14,7 +14,7 @@
 # ==============================================================================
 """ A Python package that uses task-based neurons to build neural networks. """
 
-__version__ = '0.1.0'
+__version__ = '0.2.0.dev0'
 
 from tnlearn.regressor import VecSymRegressor
 from tnlearn.mlpregressor import MLPRegressor
@@ -27,7 +27,9 @@ from tnlearn.poly_regressor import PolyTensorRegression
 from tnlearn.drsr import LLMSymRegressor, discover_neuron_formula
 from tnlearn.rl_regressor import RLRegressor
 
-# 更新 __all__ 列表
+from tnlearn.modules import *
+from tnlearn import modules
+
 __all__ = [
     'VecSymRegressor',
     'MLPRegressor',
@@ -36,7 +38,10 @@ __all__ = [
     'BaseModel',
     'BaseModel1',
     'PolyTensorRegression',
-    'LLMSymRegressor',           # 新增
-    'discover_neuron_formula',   # 新增
-    'RLRegressor',              # 新增
+    'LLMSymRegressor',           
+    'discover_neuron_formula',   
+    'RLRegressor',              
 ]
+
+if hasattr(modules, '__all__'):
+    __all__.extend(modules.__all__)
