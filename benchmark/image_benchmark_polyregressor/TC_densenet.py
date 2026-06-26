@@ -81,8 +81,7 @@ class DenseNet(nn.Module):
         #side of the inputs is zero-padded by one pixel to keep
         #the feature-map size fixed.
         # self.conv1 = nn.Conv2d(3, inner_channels, kernel_size=3, padding=1, bias=False)
-        # self.conv1 = TNConv2d(3, inner_channels, 3, 1, 1, True)
-        self.conv1 = TNConv2d(3, inner_channels, 3, 1, 1, '5@x**2 + torch.sin(x)*torch.cos(x)', bias = True)
+        self.conv1 = TNConv2d(3, inner_channels, 3, 1, 1, 'x + torch.sin(x)', bias = True)
 
         self.features = nn.Sequential()
 

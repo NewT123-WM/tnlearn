@@ -14,76 +14,86 @@
 # ==============================================================================
 
 import math
+import re
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 from torch.nn import init
-import re
 from torch.nn import functional as F
 
-# 准备 eval 所需的全局命名空间
+# 安全全局命名空间（仅用于初始化时编译表达式）
 _EVAL_GLOBALS = {
     'torch': torch,
-    'np': __import__('numpy'),
     'math': math,
     'F': F,
+    # 可根据需要扩展其他常用库，如 'np': np
 }
 
 
 class CustomNeuronLayer(nn.Module):
-    r"""Build a neural network model of a custom architecture."""
+    r"""Build a neural network model of a custom architecture (GPU‑efficient version)."""
+
     def __init__(self, in_features: int, out_features: int, symbolic_expression: str, bias: bool = True):
-        r"""Initialize the custom layer with given input and output features
-        and the symbolic expression that defines neuron functionality.
-
-        Args:
-            in_features: The number of features of the input data.
-            out_features: The number of features of the output data.
-            symbolic_expression: Neuronal expression obtained by vectorized symbolic regression.
-            bias: Bias.
-        """
-        super(CustomNeuronLayer, self).__init__()
-
-        # Number of input and output features
+        super().__init__()
+        
         self.in_features = in_features
         self.out_features = out_features
-
-        # The symbolic expression that represents neuron operations
         self.neuron = symbolic_expression
 
-        # Count the number of inputs ('x') in the symbolic expression
-        self.number = symbolic_expression.count('x')
+        # ---------- 一次性解析表达式 ----------
+        self.expr_strings = self._extract_var_exprs(symbolic_expression)
+        self.num_terms = len(self.expr_strings)
 
-        # Create parameters (weights) for the layer based on the number of 'x' inputs
-        for i in range(self.number):
-            setattr(self, f'weight{i}', Parameter(torch.Tensor(out_features, in_features)))
+        # 预编译每个子表达式为可调用函数（仅执行一次 eval）
+        self.funcs = []
+        for expr_str in self.expr_strings:
+            try:
+                # 编译为 lambda 函数：输入 x，返回表达式计算结果
+                func = eval(f"lambda x: {expr_str}", _EVAL_GLOBALS, {})
+                self.funcs.append(func)
+            except Exception as e:
+                # 若表达式不合法，则占位为一个返回零张量的函数
+                print(f"Warning: Failed to compile expression '{expr_str}': {e}. Using zero placeholder.")
+                self.funcs.append(lambda x: torch.zeros_like(x))
 
-        # Initialize bias if it's required, otherwise it's registered as None
+        # ---------- 权重参数列表 ----------
+        self.weights = nn.ParameterList([
+            Parameter(torch.Tensor(out_features, in_features)) for _ in range(self.num_terms)
+        ])
+
+        # ---------- 偏置 ----------
         if bias:
             self.bias = Parameter(torch.empty(out_features))
         else:
             self.register_parameter('bias', None)
 
-        # Reset parameters for the initialized layer
         self.reset_parameters()
 
-    def reset_parameters(self) -> None:
-        r"""Resets the layer's parameters by initializing weights and bias."""
-
-        # Initialize weights using Kaiming uniform initialization
-        for i in range(self.number):
-            weight = getattr(self, f'weight{i}')
-            init.kaiming_uniform_(weight, a=math.sqrt(5))
-
-        # Initialize bias with uniform distribution if bias is not None
-        if self.bias is not None:
-            weight0 = getattr(self, 'weight0')
-            fan_in, _ = init._calculate_fan_in_and_fan_out(weight0)
-            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            init.uniform_(self.bias, -bound, bound)
+    def _extract_var_exprs(self, expr: str) -> list:
+        """
+        从原始符号表达式中提取所有 '@' 之后的变量表达式（丢弃系数）。
+        例如 "2@x**3 + 3@torch.sin(x) + x" -> ['x**3', 'torch.sin(x)', 'x']
+        """
+        # 去除空格
+        expr = expr.replace(' ', '')
+        # 按顶层 '+' 或 '-' 分割（注意保留括号内的符号）
+        terms = self._split_terms(expr)
+        var_exprs = []
+        for term in terms:
+            # 去掉开头的 '+' 或 '-'
+            term = term.lstrip('+-')
+            if '@' in term:
+                # 取 '@' 之后的部分
+                var_part = term.split('@', 1)[1]
+                var_exprs.append(var_part)
+            elif 'x' in term:
+                # 没有 '@' 表示系数为 1（隐含），整个 term 就是变量表达式
+                var_exprs.append(term)
+            # 常数项（无 'x'）直接忽略
+        return var_exprs
 
     def _split_terms(self, expr: str):
-        """Split expression by top-level '+' and '-' operators, preserving parentheses."""
+        """按顶层加减号分割表达式，正确保留括号内的符号。"""
         terms = []
         current = []
         paren_depth = 0
@@ -101,62 +111,26 @@ class CustomNeuronLayer(nn.Module):
             terms.append(''.join(current))
         return terms
 
-    def xdata(self):
-        r"""Extract data terms from the symbolic expression.
-
-        Returns:
-            List of expression strings (each corresponds to one occurrence of 'x').
-        """
-        # Remove all whitespace
-        expr = self.neuron.replace(' ', '')
-        # Split into top-level terms
-        terms = self._split_terms(expr)
-        xx = []
-        for term in terms:
-            # Remove leading '+' or '-' before splitting at '@'
-            term = term.lstrip('+-')
-            if '@' in term:
-                # The part after '@' is the variable expression
-                var_expr = term.split('@', 1)[1]
-                xx.append(var_expr)
-            elif 'x' in term:
-                # No '@' means coefficient is 1 (implicitly)
-                xx.append(term)
-            else:
-                # Constant term, ignore (no 'x')
-                pass
-        return xx
+    def reset_parameters(self) -> None:
+        """Kaiming 初始化权重，均匀初始化偏置。"""
+        for w in self.weights:
+            init.kaiming_uniform_(w, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = init._calculate_fan_in_and_fan_out(self.weights[0])
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            init.uniform_(self.bias, -bound, bound)
 
     def forward(self, x):
-        r"""Defines the forward pass using the symbolic expression.
-
-        Returns:
-            The calculation of a single neuron.
         """
-        # Collect variable data blocks from the symbolic expression
-        xlist = self.xdata()
-        # Ensure number of extracted terms matches the number of weights
-        if len(xlist) != self.number:
-            # Fallback: if mismatch, maybe some terms were constant; ignore extra weights?
-            # For safety, we take min.
-            pass
+        前向传播：对每个编译好的子表达式计算张量，再分别做线性变换，最后求和加偏置。
+        """
         result = 0.0
-        # Local globals for eval: include the input tensor x and the safe globals
-        for i, var_expr in enumerate(xlist):
-            # Evaluate the expression (e.g., 'x', 'x**2', 'torch.sin(x)')
-            # The expression can use the variable name 'x' (the input tensor)
-            # We provide a local dict with 'x' bound to the input
-            local_dict = {'x': x}
-            try:
-                value = eval(var_expr, _EVAL_GLOBALS, local_dict)
-            except Exception as e:
-                # If evaluation fails, fallback to zero
-                print(f"Warning: Failed to evaluate expression '{var_expr}': {e}")
-                value = torch.zeros_like(x)
-            # Apply linear transformation with the corresponding weight matrix
-            weight = getattr(self, f'weight{i}')
-            transformed = F.linear(value, weight, None)
-            result = result + transformed
+        for func, weight in zip(self.funcs, self.weights):
+            # 调用预编译函数，得到张量值
+            value = func(x)
+            # 线性变换（不额外加偏置，因为总偏置统一添加）
+            result += F.linear(value, weight, None)
+
         if self.bias is not None:
-            result = result + self.bias
+            result += self.bias
         return result

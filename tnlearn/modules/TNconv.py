@@ -5,7 +5,7 @@ import math
 from torch.nn import init
 from typing import Union, Tuple
 
-__all__ = ['TNconv1d', 'TNconv2d', 'TNconv3d', 'TNConvTranspose1d', 'TNConvTranspose2d', 'TNConvTranspose3d']
+__all__ = ['TNConv1d', 'TNConv2d', 'TNConv3d', 'TNConvTranspose1d', 'TNConvTranspose2d', 'TNConvTranspose3d']
 
 _EVAL_GLOBALS = {
     'torch': torch,
@@ -15,7 +15,7 @@ _EVAL_GLOBALS = {
 }
 
 class _TNConvNd(nn.Module):
-    """基类：支持符号表达式的 N 维卷积层"""
+    """Base class: N-dimensional convolution layer supporting symbolic expressions."""
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -29,14 +29,14 @@ class _TNConvNd(nn.Module):
                  bias: bool = True,
                  device=None,
                  dtype=None,
-                 ndim: int = 2):   # ndim 指定卷积维度 1/2/3
+                 ndim: int = 2):   # ndim specifies convolution dimension 1/2/3
         super().__init__()
         self.ndim = ndim
         self.in_channels = int(in_channels)
         self.out_channels = int(out_channels)
         self.groups = int(groups)
 
-        # 统一转换为元组
+        # Convert to tuples uniformly
         self.kernel_size = self._ntuple(ndim)(kernel_size)
         self.stride = self._ntuple(ndim)(stride)
         self.padding = self._ntuple(ndim)(padding)
@@ -45,16 +45,16 @@ class _TNConvNd(nn.Module):
         self.padding_mode = padding_mode
         self.symbolic_expression = symbolic_expression
 
-        # 验证 groups
+        # Validate groups
         if in_channels % groups != 0:
             raise ValueError(f'in_channels ({in_channels}) must be divisible by groups ({groups})')
 
-        # 解析表达式
+        # Parse the expression
         self.terms = self._parse_expression(symbolic_expression)
         if not self.terms:
             self.terms = ['x']
 
-        # 预编译基函数
+        # Pre-compile basis functions
         self.funcs = []
         for expr in self.terms:
             try:
@@ -64,16 +64,16 @@ class _TNConvNd(nn.Module):
                 fn = lambda x: x
             self.funcs.append(fn)
 
-        # 创建权重
+        # Create weights
         in_ch_per_group = in_channels // groups
-        # 权重形状: (out_channels, in_ch_per_group, *kernel_size)
+        # Weight shape: (out_channels, in_ch_per_group, *kernel_size)
         self.weights = nn.ParameterList()
         for _ in self.terms:
             w = nn.Parameter(torch.empty(out_channels, in_ch_per_group, *self.kernel_size,
                                          device=device, dtype=dtype))
             self.weights.append(w)
 
-        # 偏置
+        # Bias
         if bias:
             self.bias = nn.Parameter(torch.empty(out_channels, device=device, dtype=dtype))
         else:
@@ -98,7 +98,7 @@ class _TNConvNd(nn.Module):
             self.funcs.append(fn)
 
     def _ntuple(self, n):
-        """返回一个函数，将输入转为长度为 n 的元组"""
+        """Return a function that converts input to a tuple of length n."""
         def parse(x):
             if isinstance(x, (int, float)):
                 return tuple([int(x)] * n)
@@ -152,42 +152,43 @@ class _TNConvNd(nn.Module):
         return x_terms
 
     def forward(self, x):
-        # 处理填充模式（非零填充需手动 pad）
+        # Handle padding modes (non-zero padding requires manual pad)
         if self.padding_mode != 'zeros':
-            # 根据维度构建 pad 元组：F.pad 顺序为 (left, right, top, bottom, front, back) 等
-            # 对于 1D: (pad_w, pad_w)
-            # 对于 2D: (pad_w, pad_w, pad_h, pad_h)
-            # 对于 3D: (pad_w, pad_w, pad_h, pad_h, pad_d, pad_d)
+            # Build pad tuple according to dimension: F.pad order is (left, right, top, bottom, front, back) etc.
+            # For 1D: (pad_w, pad_w)
+            # For 2D: (pad_w, pad_w, pad_h, pad_h)
+            # For 3D: (pad_w, pad_w, pad_h, pad_h, pad_d, pad_d)
             pad = []
-            for size in reversed(self.padding):   # 从最后一个维度开始
+            for size in reversed(self.padding):   # start from the last dimension
                 pad.extend([size, size])
             x = F.pad(x, pad, mode=self.padding_mode)
-            conv_padding = tuple([0] * self.ndim)   # 卷积时不额外填充
+            conv_padding = tuple([0] * self.ndim)   # no extra padding in convolution
         else:
             conv_padding = self.padding
 
-        result = 0.0
+        # Accumulate outputs from each basis function
+        result = None
         for func, weight in zip(self.funcs, self.weights):
             transformed = func(x)
             out = self._conv_forward(transformed, weight, conv_padding)
-            result = result + out
+            if result is None:
+                result = out          # direct assignment, no copy
+            else:
+                result = result + out # in-place addition would be ideal, but PyTorch doesn't support in-place for tensors from different operations; this is fine
 
         if self.bias is not None:
-            # 偏置形状: (out_channels,)，需扩展维度匹配输出
-            # 输出形状为 (N, C, *spatial)，偏置加在 C 维度上
+            # Bias shape: (out_channels,), need to expand dimensions to match output
+            # Output shape is (N, C, *spatial), bias is added on the C dimension
             result = result + self.bias.view(1, -1, *([1] * self.ndim))
 
         return result
 
     def _conv_forward(self, x, weight, padding):
-        """子类重写此方法，调用对应的 F.conv1d/2d/3d"""
+        """Subclasses override this method to call the corresponding F.conv1d/2d/3d."""
         raise NotImplementedError
-    
-
-    
 
 
-# ---------- 子类实现 ----------
+# ---------- Subclass implementations ----------
 class TNConv1d(_TNConvNd):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0,
                  symbolic_expression='x', groups=1, dilation=1, padding_mode='zeros',
@@ -234,11 +235,11 @@ class TNConv3d(_TNConvNd):
                         padding=padding,
                         dilation=self.dilation,
                         groups=self.groups)
-    
 
-# ---------- 转置卷积基类 ----------
+
+# ---------- Transposed convolution base class ----------
 class _TNConvTransposeNd(nn.Module):
-    """基类：支持符号表达式的 N 维转置卷积层"""
+    """Base class: N-dimensional transposed convolution layer supporting symbolic expressions."""
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -259,7 +260,7 @@ class _TNConvTransposeNd(nn.Module):
         self.out_channels = int(out_channels)
         self.groups = int(groups)
 
-        # 统一转换为元组
+        # Convert to tuples uniformly
         self.kernel_size = self._ntuple(ndim)(kernel_size)
         self.stride = self._ntuple(ndim)(stride)
         self.padding = self._ntuple(ndim)(padding)
@@ -268,18 +269,18 @@ class _TNConvTransposeNd(nn.Module):
 
         self.symbolic_expression = symbolic_expression
 
-        # 验证 groups
+        # Validate groups
         if in_channels % groups != 0:
             raise ValueError(f'in_channels ({in_channels}) must be divisible by groups ({groups})')
         if out_channels % groups != 0:
             raise ValueError(f'out_channels ({out_channels}) must be divisible by groups ({groups})')
 
-        # 解析表达式
+        # Parse the expression
         self.terms = self._parse_expression(symbolic_expression)
         if not self.terms:
             self.terms = ['x']
 
-        # 预编译基函数
+        # Pre-compile basis functions
         self.funcs = []
         for expr in self.terms:
             try:
@@ -289,7 +290,7 @@ class _TNConvTransposeNd(nn.Module):
                 fn = lambda x: x
             self.funcs.append(fn)
 
-        # 创建权重（转置卷积权重形状：(in_channels, out_channels // groups, *kernel_size)）
+        # Create weights (transposed conv weight shape: (in_channels, out_channels // groups, *kernel_size))
         out_ch_per_group = out_channels // groups
         self.weights = nn.ParameterList()
         for _ in self.terms:
@@ -297,7 +298,7 @@ class _TNConvTransposeNd(nn.Module):
                                          device=device, dtype=dtype))
             self.weights.append(w)
 
-        # 偏置
+        # Bias
         if bias:
             self.bias = nn.Parameter(torch.empty(out_channels, device=device, dtype=dtype))
         else:
@@ -375,11 +376,15 @@ class _TNConvTransposeNd(nn.Module):
         return x_terms
 
     def forward(self, x):
-        result = 0.0
+        # Accumulate outputs from each basis function
+        result = None
         for func, weight in zip(self.funcs, self.weights):
             transformed = func(x)
             out = self._conv_forward(transformed, weight)
-            result = result + out
+            if result is None:
+                result = out
+            else:
+                result = result + out
 
         if self.bias is not None:
             result = result + self.bias.view(1, -1, *([1] * self.ndim))
@@ -387,11 +392,11 @@ class _TNConvTransposeNd(nn.Module):
         return result
 
     def _conv_forward(self, x, weight):
-        """子类重写此方法，调用对应的 F.conv_transpose1d/2d/3d"""
+        """Subclasses override this method to call the corresponding F.conv_transpose1d/2d/3d."""
         raise NotImplementedError
 
 
-# ---------- 转置卷积子类 ----------
+# ---------- Transposed convolution subclasses ----------
 class TNConvTranspose1d(_TNConvTransposeNd):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0,
                  output_padding=0, symbolic_expression='x', groups=1, dilation=1,
@@ -441,5 +446,3 @@ class TNConvTranspose3d(_TNConvTransposeNd):
                                   output_padding=self.output_padding,
                                   dilation=self.dilation,
                                   groups=self.groups)
-    
-

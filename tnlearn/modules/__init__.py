@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""自定义模块：包含支持符号表达式的线性层、卷积层和循环层。"""
+"""Custom modules: including fully-connected, convolutional, recurrent, 
+and transformer layers supporting symbolic expressions."""
 
 from .TNlinear import TNLinear
 from .TNconv import (
@@ -33,18 +34,26 @@ from .TNrnn import (
     TNLSTMCell,
     TNGRUCell,
 )
+from .TNtransformer import (
+    TNTransformer,
+    TNTransformerEncoder,
+    TNTransformerDecoder,
+    TNTransformerEncoderLayer,
+    TNTransformerDecoderLayer
+
+)
 
 __all__ = [
-    # 线性层
+    # Fully-connected layers
     'TNLinear',
-    # 卷积层
+    # Convolutional layers
     'TNConv1d',
     'TNConv2d',
     'TNConv3d',
     'TNConvTranspose1d',
     'TNConvTranspose2d',
     'TNConvTranspose3d',
-    # RNN 相关
+    # RNN related
     'TNRNNBase',
     'TNRNN',
     'TNLSTM',
@@ -53,4 +62,10 @@ __all__ = [
     'TNRNNCell',
     'TNLSTMCell',
     'TNGRUCell',
+    # Transformer related
+    'TNTransformer',
+    'TNTransformerEncoder',
+    'TNTransformerDecoder',
+    'TNTransformerEncoderLayer',
+    'TNTransformerDecoderLayer'
 ]

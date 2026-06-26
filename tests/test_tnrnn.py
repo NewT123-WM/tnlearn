@@ -8,7 +8,7 @@ from tnlearn import (
 
 
 def compare_tensors(out1, out2, atol=1e-6):
-    """递归比较两个输出，支持嵌套元组/列表"""
+    """Recursively compare two outputs, supporting nested tuples/lists."""
     if isinstance(out1, torch.Tensor):
         assert torch.allclose(out1, out2, atol=atol), f"Tensor mismatch: {out1} vs {out2}"
     elif isinstance(out1, (tuple, list)):
@@ -21,20 +21,22 @@ def compare_tensors(out1, out2, atol=1e-6):
 
 def test_save_load(model, input_args, hx_args=None, is_cell=False):
     """
-    测试模型的保存和加载
-    model: 待测试的模型
-    input_args: 传递给 forward 的输入张量（或元组）
-    hx_args: 可选的初始状态
-    is_cell: 是否为 Cell（Cell 返回元组）
+    Test model saving and loading.
+
+    Args:
+        model: The model to test.
+        input_args: Input tensor(s) to pass to forward.
+        hx_args: Optional initial hidden/cell state.
+        is_cell: Whether the model is a cell (returns a tuple).
     """
     model.train()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
-    # 执行一次前向+反向更新
+    # Perform one forward + backward update
     optimizer.zero_grad()
     if hx_args is not None:
         if is_cell:
-            # Cell 的输入可能是 (input, hx) 或 (input, (hx, cx))
+            # Cell input may be (input, hx) or (input, (hx, cx))
             if isinstance(hx_args, tuple) and len(hx_args) == 2 and isinstance(hx_args[0], torch.Tensor):
                 # LSTM Cell: (h0, c0)
                 output = model(input_args, hx_args)
@@ -45,7 +47,7 @@ def test_save_load(model, input_args, hx_args=None, is_cell=False):
     else:
         output = model(input_args)
 
-    # 使用输出的总和作为损失（简单反向）
+    # Use the sum of the output as loss (simple backward)
     def sum_output(out):
         if isinstance(out, torch.Tensor):
             return out.sum()
@@ -58,7 +60,7 @@ def test_save_load(model, input_args, hx_args=None, is_cell=False):
     loss.backward()
     optimizer.step()
 
-    # 记录更新后的输出（eval模式）
+    # Record the output after update (eval mode)
     model.eval()
     with torch.no_grad():
         if hx_args is not None:
@@ -72,16 +74,20 @@ def test_save_load(model, input_args, hx_args=None, is_cell=False):
         else:
             out_after = model(input_args)
 
-    # 保存完整模型
+    # Save the full model
     with tempfile.NamedTemporaryFile(delete=False, suffix='.pt') as f:
         torch.save(model, f.name)
         path = f.name
 
-    # 加载模型
-    loaded_model = torch.load(path,weights_only=False)
+    # Load the model
+    try:
+        loaded_model = torch.load(path, weights_only=False)
+    except TypeError:
+        loaded_model = torch.load(path)
+        
     loaded_model.eval()
 
-    # 比较输出（递归比较，支持嵌套元组）
+    # Compare outputs (recursive, supports nested tuples)
     with torch.no_grad():
         if hx_args is not None:
             if is_cell:
@@ -96,7 +102,7 @@ def test_save_load(model, input_args, hx_args=None, is_cell=False):
 
     compare_tensors(out_after, out_loaded, atol=1e-6)
 
-    # 比较参数
+    # Compare parameters
     for (name1, p1), (name2, p2) in zip(model.state_dict().items(), loaded_model.state_dict().items()):
         assert torch.allclose(p1, p2, atol=1e-6), f"Parameter mismatch for {name1}"
 
