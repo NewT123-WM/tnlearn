@@ -1,3 +1,15 @@
+"""
+Recurrent neural network layers with custom neuron aggregation.
+
+This module provides RNN, LSTM, GRU and their cell variants where the input
+is first transformed by a user‑defined symbolic expression (e.g., 'x + torch.sin(x)')
+before being fed into the recurrent computation. The transformation is applied
+element‑wise to the input features and the results are concatenated, effectively
+augmenting the input dimension with learnable non‑linearities.
+
+Based on PyTorch's torch.nn.modules.rnn.
+"""
+
 import math
 import warnings
 from typing import List, Optional, Tuple, Union
@@ -16,7 +28,7 @@ __all__ = [
     'TNRNNCellBase', 'TNRNNCell', 'TNLSTMCell', 'TNGRUCell'
 ]
 
-# ---------- 全局 eval 环境（用于表达式解析） ----------
+# ---------- Global evaluation environment for expression parsing ----------
 _EVAL_GLOBALS = {
     'torch': torch,
     'np': __import__('numpy'),
@@ -25,10 +37,25 @@ _EVAL_GLOBALS = {
 }
 
 
-def _parse_expression(expr: str):
-    """解析符号表达式，返回基函数列表（可调用函数）"""
+def _parse_expression(expr: str) -> list:
+    """
+    Parses a symbolic expression and returns a list of callable basis functions.
+
+    The expression is split at the top‑level '+' and '-' operators (respecting
+    parentheses). Only sub‑expressions that contain 'x' are kept; each such
+    sub‑expression is compiled into a lambda function that takes a tensor `x`
+    and returns the transformed tensor. If a term contains '@', the part after
+    '@' is used as the variable expression (the coefficient is ignored).
+
+    Args:
+        expr (str): The symbolic expression, e.g., 'x + torch.sin(x)'.
+
+    Returns:
+        list: A list of callable functions, each accepting a tensor and
+        returning a tensor. If no valid 'x' term is found, returns [lambda x: x].
+    """
     expr = expr.replace(' ', '')
-    # 简单拆分：按顶层 + 和 - 分割（忽略括号内）
+    # Split at top‑level '+' and '-', ignoring parentheses
     terms = []
     current = []
     depth = 0
@@ -49,12 +76,11 @@ def _parse_expression(expr: str):
     for t in terms:
         t = t.lstrip('+-')
         if 'x' in t:
-            # 若含有 '@'，只取后面的部分
+            # If '@' is present, use the part after it as the variable expression
             if '@' in t:
                 var_expr = t.split('@', 1)[1]
             else:
                 var_expr = t
-            # 编译为可调用函数
             try:
                 fn = eval('lambda x: ' + var_expr, _EVAL_GLOBALS)
             except Exception as e:
@@ -62,21 +88,54 @@ def _parse_expression(expr: str):
                 fn = lambda x: x
             funcs.append(fn)
     if not funcs:
-        funcs = [lambda x: x]   # 默认线性
+        funcs = [lambda x: x]   # fallback to linear
     return funcs
 
 
-def _augment_input(x: Tensor, funcs: list):
-    """对输入张量 x 应用所有基函数，并沿最后一个维度拼接"""
+def _augment_input(x: Tensor, funcs: list) -> Tensor:
+    """
+    Applies all basis functions to the input and concatenates the results.
+
+    Args:
+        x (Tensor): Input tensor of shape (..., feature_dim).
+        funcs (list): List of callable functions.
+
+    Returns:
+        Tensor: Augmented tensor with shape (..., feature_dim * len(funcs)).
+    """
     augmented = [func(x) for func in funcs]
     return torch.cat(augmented, dim=-1)
 
 
-# ---------- 多层 RNN 基类（基于特征增广 + 原生 RNN） ----------
+# ---------- Multi‑layer RNN base (feature augmentation + native RNN) ----------
+
 class TNRNNBase(nn.Module):
-    """基类：使用特征增广方法复用 `_VF` 加速"""
+    """
+    Base class for multi‑layer RNNs with custom neuron aggregation.
+
+    This class augments the input by applying the basis functions from the
+    symbolic expression and concatenating the results, then delegates the
+    actual recurrent computation to PyTorch's native RNN, LSTM, or GRU.
+    This approach leverages the efficient `_VF` implementations.
+
+    Args:
+        mode (str): One of 'RNN', 'LSTM', 'GRU'.
+        input_size (int): The number of expected features in the input.
+        hidden_size (int): The number of features in the hidden state.
+        num_layers (int): Number of recurrent layers. Default: 1.
+        bias (bool): If False, the layer does not use bias weights. Default: True.
+        batch_first (bool): If True, input and output tensors are provided as
+            (batch, seq, feature). Default: False.
+        dropout (float): If non‑zero, introduces a Dropout layer on the outputs
+            of each RNN layer except the last. Default: 0.0.
+        bidirectional (bool): If True, becomes a bidirectional RNN. Default: False.
+        symbolic_expression (str): Symbolic expression defining the basis functions.
+            Default: 'x'.
+        device (torch.device, optional): Device for the parameters.
+        dtype (torch.dtype, optional): Data type for the parameters.
+    """
     __constants__ = ['input_size', 'hidden_size', 'num_layers', 'bias',
-                     'batch_first', 'dropout', 'bidirectional', 'neuron_expression']
+                     'batch_first', 'dropout', 'bidirectional', 'symbolic_expression']
 
     def __init__(self,
                  mode: str,
@@ -87,7 +146,7 @@ class TNRNNBase(nn.Module):
                  batch_first: bool = False,
                  dropout: float = 0.0,
                  bidirectional: bool = False,
-                 neuron_expression: str = 'x',
+                 symbolic_expression: str = 'x',
                  device=None,
                  dtype=None):
         super().__init__()
@@ -99,15 +158,14 @@ class TNRNNBase(nn.Module):
         self.batch_first = batch_first
         self.dropout = dropout
         self.bidirectional = bidirectional
-        self.neuron_expression = neuron_expression
+        self.symbolic_expression = symbolic_expression
 
-        # 解析表达式，得到基函数列表
-        self.funcs = _parse_expression(neuron_expression)
+        # Parse expression into basis functions
+        self.funcs = _parse_expression(symbolic_expression)
         self.num_funcs = len(self.funcs)
-        # 增广后的输入维度
         self.augmented_input_size = input_size * self.num_funcs
 
-        # 创建内部原生 RNN 模块
+        # Create the native RNN module
         rnn_cls = {'RNN': nn.RNN, 'LSTM': nn.LSTM, 'GRU': nn.GRU}[mode]
         self.rnn = rnn_cls(
             input_size=self.augmented_input_size,
@@ -122,16 +180,22 @@ class TNRNNBase(nn.Module):
         )
 
     def _augment(self, x: Tensor) -> Tensor:
-        """对输入进行特征增广"""
-        # 如果 batch_first=True，x 形状为 (batch, seq, feature)，否则 (seq, batch, feature)
-        # 我们始终在最后一维操作
+        """Augments the input by applying all basis functions and concatenating."""
         augmented = [func(x) for func in self.funcs]
         return torch.cat(augmented, dim=-1)
 
     def forward(self, input: Tensor, hx: Optional[Tensor] = None):
-        # 增广输入
+        """
+        Forward pass of the RNN.
+
+        Args:
+            input (Tensor): Input tensor. Shape depends on batch_first.
+            hx (Tensor, optional): Initial hidden state. If not provided, defaults to zeros.
+
+        Returns:
+            output, hidden_state: Same as the native RNN.
+        """
         aug_input = self._augment(input)
-        # 调用原生 RNN
         return self.rnn(aug_input, hx)
 
     def extra_repr(self) -> str:
@@ -146,85 +210,156 @@ class TNRNNBase(nn.Module):
             s += f', dropout={self.dropout}'
         if self.bidirectional is not False:
             s += f', bidirectional={self.bidirectional}'
-        if self.neuron_expression != 'x':
-            s += f', neuron_expression={self.neuron_expression}'
+        if self.symbolic_expression != 'x':
+            s += f', symbolic_expression={self.symbolic_expression}'
         return s
 
     def __getstate__(self):
-        # 处理 lambda 序列化：移除 funcs，因为它是动态生成的
+        # Remove compiled lambdas for pickling
         state = self.__dict__.copy()
         state.pop('funcs', None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        # 重新构建 funcs
-        self.funcs = _parse_expression(self.neuron_expression)
+        # Re‑build funcs from the expression
+        self.funcs = _parse_expression(self.symbolic_expression)
 
 
-# ---------- 具体 RNN 类 ----------
+# ---------- Concrete RNN classes ----------
+
 class TNRNN(TNRNNBase):
+    """
+    A multi‑layer RNN with custom neuron aggregation.
+
+    This is the equivalent of :class:`torch.nn.RNN` where the input is first
+    augmented by basis functions defined in `symbolic_expression`.
+
+    Args:
+        input_size (int): Number of input features.
+        hidden_size (int): Number of hidden features.
+        num_layers (int): Number of recurrent layers. Default: 1.
+        nonlinearity (str): The non‑linearity to use: 'tanh' or 'relu'. Default: 'tanh'.
+        bias (bool): If False, no bias weights are used. Default: True.
+        batch_first (bool): If True, input/output shape is (batch, seq, feature). Default: False.
+        dropout (float): Dropout probability. Default: 0.0.
+        bidirectional (bool): If True, becomes bidirectional. Default: False.
+        symbolic_expression (str): Basis function expression. Default: 'x'.
+        device (torch.device, optional): Device for parameters.
+        dtype (torch.dtype, optional): Data type for parameters.
+    """
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1,
                  nonlinearity: str = 'tanh', bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
-                 neuron_expression: str = 'x', device=None, dtype=None):
-        # 注意：RNN 有 nonlinearity 参数，但我们使用增广方式，原生 nn.RNN 已包含该参数
+                 symbolic_expression: str = 'x', device=None, dtype=None):
         super().__init__('RNN', input_size, hidden_size, num_layers, bias,
-                         batch_first, dropout, bidirectional, neuron_expression,
+                         batch_first, dropout, bidirectional, symbolic_expression,
                          device, dtype)
-        # 将内部 rnn 的 nonlinearity 设置为指定值
         self.rnn.nonlinearity = nonlinearity
 
 
 class TNLSTM(TNRNNBase):
+    """
+    A multi‑layer LSTM with custom neuron aggregation.
+
+    This is the equivalent of :class:`torch.nn.LSTM` where the input is first
+    augmented by basis functions defined in `symbolic_expression`.
+
+    Args:
+        input_size (int): Number of input features.
+        hidden_size (int): Number of hidden features.
+        num_layers (int): Number of recurrent layers. Default: 1.
+        bias (bool): If False, no bias weights are used. Default: True.
+        batch_first (bool): If True, input/output shape is (batch, seq, feature). Default: False.
+        dropout (float): Dropout probability. Default: 0.0.
+        bidirectional (bool): If True, becomes bidirectional. Default: False.
+        symbolic_expression (str): Basis function expression. Default: 'x'.
+        device (torch.device, optional): Device for parameters.
+        dtype (torch.dtype, optional): Data type for parameters.
+    """
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1,
                  bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
-                 neuron_expression: str = 'x', device=None, dtype=None):
+                 symbolic_expression: str = 'x', device=None, dtype=None):
         super().__init__('LSTM', input_size, hidden_size, num_layers, bias,
-                         batch_first, dropout, bidirectional, neuron_expression,
+                         batch_first, dropout, bidirectional, symbolic_expression,
                          device, dtype)
 
 
 class TNGRU(TNRNNBase):
+    """
+    A multi‑layer GRU with custom neuron aggregation.
+
+    This is the equivalent of :class:`torch.nn.GRU` where the input is first
+    augmented by basis functions defined in `symbolic_expression`.
+
+    Args:
+        input_size (int): Number of input features.
+        hidden_size (int): Number of hidden features.
+        num_layers (int): Number of recurrent layers. Default: 1.
+        bias (bool): If False, no bias weights are used. Default: True.
+        batch_first (bool): If True, input/output shape is (batch, seq, feature). Default: False.
+        dropout (float): Dropout probability. Default: 0.0.
+        bidirectional (bool): If True, becomes bidirectional. Default: False.
+        symbolic_expression (str): Basis function expression. Default: 'x'.
+        device (torch.device, optional): Device for parameters.
+        dtype (torch.dtype, optional): Data type for parameters.
+    """
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1,
                  bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
-                 neuron_expression: str = 'x', device=None, dtype=None):
+                 symbolic_expression: str = 'x', device=None, dtype=None):
         super().__init__('GRU', input_size, hidden_size, num_layers, bias,
-                         batch_first, dropout, bidirectional, neuron_expression,
+                         batch_first, dropout, bidirectional, symbolic_expression,
                          device, dtype)
 
 
-# ---------- Cell 版本（基于 TNLinear，用于逐时间步计算） ----------
+# ---------- Cell versions (using TNLinear for per‑time‑step computation) ----------
+
 class TNRNNCellBase(nn.Module):
-    """基类：所有自定义 RNN Cell 的父类，使用 TNLinear 作为权重"""
-    __constants__ = ['input_size', 'hidden_size', 'bias', 'neuron_expression']
+    """
+    Base class for RNN cells with custom neuron aggregation.
+
+    This class uses :class:`TNLinear` for both input‑to‑hidden and
+    hidden‑to‑hidden projections, applying the basis functions from the
+    symbolic expression inside each linear layer. It is intended to be
+    subclassed by specific cell types.
+
+    Args:
+        input_size (int): Number of input features.
+        hidden_size (int): Number of hidden features.
+        bias (bool): If True, adds a bias to both linear layers.
+        symbolic_expression (str): Basis function expression. Default: 'x'.
+        num_chunks (int): Number of chunks to split the output into (e.g., 4 for LSTM).
+        device (torch.device, optional): Device for parameters.
+        dtype (torch.dtype, optional): Data type for parameters.
+    """
+    __constants__ = ['input_size', 'hidden_size', 'bias', 'symbolic_expression']
 
     def __init__(self, input_size: int, hidden_size: int, bias: bool,
-                 neuron_expression: str = 'x', num_chunks: int = 1,
+                 symbolic_expression: str = 'x', num_chunks: int = 1,
                  device=None, dtype=None):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.bias = bias
-        self.neuron_expression = neuron_expression
+        self.symbolic_expression = symbolic_expression
         self.num_chunks = num_chunks
 
-        # 输入→隐藏 线性层
+        # Input‑to‑hidden linear layer
         self.ih = TNLinear(
             in_features=input_size,
             out_features=num_chunks * hidden_size,
-            symbolic_expression=neuron_expression,
+            symbolic_expression=symbolic_expression,
             bias=bias,
             device=device,
             dtype=dtype
         )
-        # 隐藏→隐藏 线性层
+        # Hidden‑to‑hidden linear layer
         self.hh = TNLinear(
             in_features=hidden_size,
             out_features=num_chunks * hidden_size,
-            symbolic_expression=neuron_expression,
+            symbolic_expression=symbolic_expression,
             bias=bias,
             device=device,
             dtype=dtype
@@ -232,27 +367,52 @@ class TNRNNCellBase(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """参数初始化（由 TNLinear 内部完成，无需额外操作）"""
+        """Parameter initialisation (handled internally by TNLinear)."""
         pass
 
     def extra_repr(self) -> str:
         s = '{input_size}, {hidden_size}'
         if self.bias is not True:
             s += ', bias={bias}'
-        if self.neuron_expression != 'x':
-            s += ', neuron_expression={neuron_expression}'
+        if self.symbolic_expression != 'x':
+            s += ', symbolic_expression={symbolic_expression}'
         return s.format(**self.__dict__)
 
 
 class TNRNNCell(TNRNNCellBase):
+    """
+    An RNN cell with custom neuron aggregation.
+
+    This is the equivalent of :class:`torch.nn.RNNCell` where both linear
+    transformations use :class:`TNLinear` with the given symbolic expression.
+
+    Args:
+        input_size (int): Number of input features.
+        hidden_size (int): Number of hidden features.
+        bias (bool): If True, adds a bias. Default: True.
+        nonlinearity (str): 'tanh' or 'relu'. Default: 'tanh'.
+        symbolic_expression (str): Basis function expression. Default: 'x'.
+        device (torch.device, optional): Device for parameters.
+        dtype (torch.dtype, optional): Data type for parameters.
+    """
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
-                 nonlinearity: str = 'tanh', neuron_expression: str = 'x',
+                 nonlinearity: str = 'tanh', symbolic_expression: str = 'x',
                  device=None, dtype=None):
-        super().__init__(input_size, hidden_size, bias, neuron_expression,
+        super().__init__(input_size, hidden_size, bias, symbolic_expression,
                          num_chunks=1, device=device, dtype=dtype)
         self.nonlinearity = nonlinearity
 
     def forward(self, input: Tensor, hx: Optional[Tensor] = None) -> Tensor:
+        """
+        Forward pass of the RNN cell.
+
+        Args:
+            input (Tensor): Input tensor of shape (batch, input_size) or (input_size,).
+            hx (Tensor, optional): Initial hidden state. If not provided, zeros.
+
+        Returns:
+            Tensor: Next hidden state.
+        """
         is_batched = input.dim() == 2
         if not is_batched:
             input = input.unsqueeze(0)
@@ -279,12 +439,37 @@ class TNRNNCell(TNRNNCellBase):
 
 
 class TNLSTMCell(TNRNNCellBase):
+    """
+    An LSTM cell with custom neuron aggregation.
+
+    This is the equivalent of :class:`torch.nn.LSTMCell` where both linear
+    transformations use :class:`TNLinear` with the given symbolic expression.
+
+    Args:
+        input_size (int): Number of input features.
+        hidden_size (int): Number of hidden features.
+        bias (bool): If True, adds a bias. Default: True.
+        symbolic_expression (str): Basis function expression. Default: 'x'.
+        device (torch.device, optional): Device for parameters.
+        dtype (torch.dtype, optional): Data type for parameters.
+    """
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
-                 neuron_expression: str = 'x', device=None, dtype=None):
-        super().__init__(input_size, hidden_size, bias, neuron_expression,
+                 symbolic_expression: str = 'x', device=None, dtype=None):
+        super().__init__(input_size, hidden_size, bias, symbolic_expression,
                          num_chunks=4, device=device, dtype=dtype)
 
     def forward(self, input: Tensor, hx: Optional[Tuple[Tensor, Tensor]] = None) -> Tuple[Tensor, Tensor]:
+        """
+        Forward pass of the LSTM cell.
+
+        Args:
+            input (Tensor): Input tensor of shape (batch, input_size) or (input_size,).
+            hx (Tuple[Tensor, Tensor], optional): Tuple of (hidden, cell) states.
+                If not provided, both are zeros.
+
+        Returns:
+            Tuple[Tensor, Tensor]: (new_hidden, new_cell).
+        """
         is_batched = input.dim() == 2
         if not is_batched:
             input = input.unsqueeze(0)
@@ -320,12 +505,36 @@ class TNLSTMCell(TNRNNCellBase):
 
 
 class TNGRUCell(TNRNNCellBase):
+    """
+    A GRU cell with custom neuron aggregation.
+
+    This is the equivalent of :class:`torch.nn.GRUCell` where both linear
+    transformations use :class:`TNLinear` with the given symbolic expression.
+
+    Args:
+        input_size (int): Number of input features.
+        hidden_size (int): Number of hidden features.
+        bias (bool): If True, adds a bias. Default: True.
+        symbolic_expression (str): Basis function expression. Default: 'x'.
+        device (torch.device, optional): Device for parameters.
+        dtype (torch.dtype, optional): Data type for parameters.
+    """
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
-                 neuron_expression: str = 'x', device=None, dtype=None):
-        super().__init__(input_size, hidden_size, bias, neuron_expression,
+                 symbolic_expression: str = 'x', device=None, dtype=None):
+        super().__init__(input_size, hidden_size, bias, symbolic_expression,
                          num_chunks=3, device=device, dtype=dtype)
 
     def forward(self, input: Tensor, hx: Optional[Tensor] = None) -> Tensor:
+        """
+        Forward pass of the GRU cell.
+
+        Args:
+            input (Tensor): Input tensor of shape (batch, input_size) or (input_size,).
+            hx (Tensor, optional): Initial hidden state. If not provided, zeros.
+
+        Returns:
+            Tensor: Next hidden state.
+        """
         is_batched = input.dim() == 2
         if not is_batched:
             input = input.unsqueeze(0)

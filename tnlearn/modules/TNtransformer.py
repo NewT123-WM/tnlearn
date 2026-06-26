@@ -100,7 +100,7 @@ class TNTransformerEncoderLayer(Module):
         batch_first: if True, input/output shape (batch, seq, feature) (default=False).
         norm_first: if True, layer norm before attention/ff, else after (default=False).
         bias: if False, linear and LayerNorm layers have no bias (default=True).
-        neuron_expression: symbolic expression for TNLinear (default='x').
+        symbolic_expression: symbolic expression for TNLinear (default='x').
         device, dtype: factory kwargs.
     """
     __constants__ = ['norm_first']
@@ -116,7 +116,7 @@ class TNTransformerEncoderLayer(Module):
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
-            neuron_expression: str = 'x',
+            symbolic_expression: str = 'x',
             device=None,
             dtype=None
     ) -> None:
@@ -131,14 +131,14 @@ class TNTransformerEncoderLayer(Module):
         # Replace Linear with TNLinear
         self.linear1 = TNLinear(
             d_model, dim_feedforward,
-            symbolic_expression=neuron_expression,
+            symbolic_expression=symbolic_expression,
             bias=bias,
             **factory_kwargs
         )
         self.dropout = Dropout(dropout)
         self.linear2 = TNLinear(
             dim_feedforward, d_model,
-            symbolic_expression=neuron_expression,
+            symbolic_expression=symbolic_expression,
             bias=bias,
             **factory_kwargs
         )
@@ -296,7 +296,7 @@ class TNTransformerDecoderLayer(Module):
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
-            neuron_expression: str = 'x',
+            symbolic_expression: str = 'x',
             device=None,
             dtype=None
     ) -> None:
@@ -315,14 +315,14 @@ class TNTransformerDecoderLayer(Module):
 
         self.linear1 = TNLinear(
             d_model, dim_feedforward,
-            symbolic_expression=neuron_expression,
+            symbolic_expression=symbolic_expression,
             bias=bias,
             **factory_kwargs
         )
         self.dropout = Dropout(dropout)
         self.linear2 = TNLinear(
             dim_feedforward, d_model,
-            symbolic_expression=neuron_expression,
+            symbolic_expression=symbolic_expression,
             bias=bias,
             **factory_kwargs
         )
@@ -590,7 +590,7 @@ class TNTransformer(Module):
         batch_first: if True, input/output shape (batch, seq, feature) (default=False).
         norm_first: if True, layer norm before attention/ff, else after (default=False).
         bias: if False, linear and LayerNorm layers have no bias (default=True).
-        neuron_expression: symbolic expression for TNLinear (default='x').
+        symbolic_expression: symbolic expression for TNLinear (default='x').
         device, dtype: factory kwargs.
     """
     def __init__(
@@ -608,7 +608,7 @@ class TNTransformer(Module):
             batch_first: bool = False,
             norm_first: bool = False,
             bias: bool = True,
-            neuron_expression: str = 'x',
+            symbolic_expression: str = 'x',
             device=None,
             dtype=None
     ) -> None:
@@ -622,7 +622,7 @@ class TNTransformer(Module):
             encoder_layer = TNTransformerEncoderLayer(
                 d_model, nhead, dim_feedforward, dropout,
                 activation, layer_norm_eps, batch_first, norm_first,
-                bias, neuron_expression, **factory_kwargs
+                bias, symbolic_expression, **factory_kwargs
             )
             encoder_norm = LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
             self.encoder = TNTransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
@@ -633,7 +633,7 @@ class TNTransformer(Module):
             decoder_layer = TNTransformerDecoderLayer(
                 d_model, nhead, dim_feedforward, dropout,
                 activation, layer_norm_eps, batch_first, norm_first,
-                bias, neuron_expression, **factory_kwargs
+                bias, symbolic_expression, **factory_kwargs
             )
             decoder_norm = LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
             self.decoder = TNTransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)

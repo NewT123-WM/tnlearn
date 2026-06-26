@@ -101,7 +101,7 @@ def test_transformer_models():
     encoder_layer = TNTransformerEncoderLayer(
         d_model=512, nhead=8, dim_feedforward=2048,
         dropout=0.1, activation='relu',
-        neuron_expression='x + torch.sin(x)'
+        symbolic_expression='x + torch.sin(x)'
     )
     src = torch.randn(10, 32, 512)   # (seq, batch, feature)
     # forward signature: (src, src_mask=None, src_key_padding_mask=None, is_causal=False)
@@ -111,7 +111,7 @@ def test_transformer_models():
     decoder_layer = TNTransformerDecoderLayer(
         d_model=512, nhead=8, dim_feedforward=2048,
         dropout=0.1, activation='gelu',
-        neuron_expression='x**2 + torch.cos(x)'
+        symbolic_expression='x**2 + torch.cos(x)'
     )
     tgt = torch.randn(20, 32, 512)
     memory = torch.randn(10, 32, 512)
@@ -123,7 +123,7 @@ def test_transformer_models():
     enc_layer = TNTransformerEncoderLayer(
         d_model=512, nhead=8, dim_feedforward=2048,
         dropout=0.1, activation='relu',
-        neuron_expression='x + 0.5 * torch.sin(x)'
+        symbolic_expression='x + 0.5 * torch.sin(x)'
     )
     encoder = TNTransformerEncoder(enc_layer, num_layers=2)
     src = torch.randn(10, 32, 512)
@@ -133,7 +133,7 @@ def test_transformer_models():
     dec_layer = TNTransformerDecoderLayer(
         d_model=512, nhead=8, dim_feedforward=2048,
         dropout=0.1, activation='gelu',
-        neuron_expression='x * torch.sigmoid(x)'
+        symbolic_expression='x * torch.sigmoid(x)'
     )
     decoder = TNTransformerDecoder(dec_layer, num_layers=2)
     tgt = torch.randn(20, 32, 512)
@@ -146,7 +146,7 @@ def test_transformer_models():
         num_encoder_layers=2, num_decoder_layers=2,
         dim_feedforward=2048, dropout=0.1,
         activation='relu',
-        neuron_expression='x + torch.tanh(x)',
+        symbolic_expression='x + torch.tanh(x)',
         batch_first=False  # default
     )
     src = torch.randn(10, 32, 512)

@@ -113,32 +113,32 @@ def test_save_load(model, input_args, hx_args=None, is_cell=False):
 def test_rnn_models():
     # 1. TNRNN
     model = TNRNN(input_size=10, hidden_size=20, num_layers=2, batch_first=True,
-                  neuron_expression='x + 0.5@torch.sin(x)')
+                  symbolic_expression='x + 0.5@torch.sin(x)')
     x = torch.randn(3, 5, 10)  # (batch, seq, feature)
     test_save_load(model, x)
 
     # 2. TNLSTM
     model = TNLSTM(input_size=10, hidden_size=20, num_layers=2, bidirectional=True,
-                   neuron_expression='x**2 + torch.cos(x)')
+                   symbolic_expression='x**2 + torch.cos(x)')
     x = torch.randn(3, 5, 10)
     test_save_load(model, x)
 
     # 3. TNGRU
     model = TNGRU(input_size=10, hidden_size=20, num_layers=2, batch_first=False,
-                  neuron_expression='x')
+                  symbolic_expression='x')
     x = torch.randn(5, 3, 10)  # (seq, batch, feature)
     test_save_load(model, x)
 
     # 4. TNRNNCell
     cell = TNRNNCell(input_size=10, hidden_size=20, nonlinearity='relu',
-                     neuron_expression='x + torch.sin(x)')
+                     symbolic_expression='x + torch.sin(x)')
     x_t = torch.randn(3, 10)
     h = torch.randn(3, 20)
     test_save_load(cell, x_t, hx_args=h, is_cell=True)
 
     # 5. TNLSTMCell
     cell = TNLSTMCell(input_size=10, hidden_size=20,
-                      neuron_expression='x**3')
+                      symbolic_expression='x**3')
     x_t = torch.randn(3, 10)
     h = torch.randn(3, 20)
     c = torch.randn(3, 20)
@@ -146,7 +146,7 @@ def test_rnn_models():
 
     # 6. TNGRUCell
     cell = TNGRUCell(input_size=10, hidden_size=20,
-                     neuron_expression='x + 0.1@torch.exp(x)*x**2')
+                     symbolic_expression='x + 0.1@torch.exp(x)*x**2')
     x_t = torch.randn(3, 10)
     h = torch.randn(3, 20)
     test_save_load(cell, x_t, hx_args=h, is_cell=True)
