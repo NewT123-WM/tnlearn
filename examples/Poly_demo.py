@@ -1,4 +1,4 @@
-from Poly_tensor_regressor import PolynomialTensorRegression
+from tnlearn import PolyTensorRegressor
 import numpy as np
 
 decomp_rank = 3  # Decomposition rank
@@ -15,11 +15,11 @@ reg_lambda_w = 0.1
 reg_lambda_c = 0.1
 losses = []
 
-neuron = PolynomialTensorRegression(decomp_rank, 
-                                    poly_order, 
-                                    method='cp', 
-                                    reg_lambda_w=0.01, 
-                                    reg_lambda_c=0.01) 
+neuron = PolyTensorRegressor(decomp_rank,
+                             poly_order,
+                             method='cp',
+                             reg_lambda_w=0.01,
+                             reg_lambda_c=0.01)
 
 neuron.fit(X,y)
 print(neuron.neuron)

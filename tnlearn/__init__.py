@@ -22,7 +22,11 @@ from tnlearn.mlpclassifier import MLPClassifier
 from tnlearn.preprocessing import DataPreprocessor
 from tnlearn.base import BaseModel
 from tnlearn.base1 import BaseModel1
-from tnlearn.poly_regressor import PolyTensorRegression
+from tnlearn.poly_regressor import (
+    PolyTensorRegression,
+    PolyTensorRegressor,
+    PolynomialTensorRegression,
+)
 
 from tnlearn.drsr import LLMSymRegressor, discover_neuron_formula
 from tnlearn.rl_regressor import RLRegressor
@@ -36,6 +40,8 @@ __all__ = [
     'BaseModel',
     'BaseModel1',
     'PolyTensorRegression',
+    'PolyTensorRegressor',
+    'PolynomialTensorRegression',
     'LLMSymRegressor',           # 新增
     'discover_neuron_formula',   # 新增
     'RLRegressor',              # 新增

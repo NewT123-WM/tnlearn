@@ -18,7 +18,6 @@ from sympy import sympify, expand
 import operator
 from random import randint, random, shuffle
 from copy import deepcopy
-import re
 from tqdm import tqdm
 from tnlearn.seeds import random_seed
 
@@ -115,23 +114,25 @@ class VecSymRegressor:
             Transformed symbolic expression.
             The evaluation value of the x_data.
         """
-
         x = x_data
-        temp = re.split(' ', expr)
-        for n, i_exp in enumerate(temp):
-            if '@' in i_exp:
-                index = i_exp.find('@')
-                tem = list(i_exp)
-                tem[index - 1] = str((eval(''.join(i_exp[0:index])) * np.ones((1, x_data.shape[0]))).tolist())
-                del tem[0:index - 1]
-                temp[n] = ''.join(tem)
-        ex = ''.join(temp)
-        return expr, eval(ex)
+        expr_eval = expr.replace('@@', '**').replace('@', '*')
+
+        try:
+            result = eval(expr_eval)
+            if result.ndim == 1:
+                result = result.reshape(-1, 1)
+            prediction = np.sum(result, axis=0)
+            return expr, prediction
+        except Exception:
+            return expr, np.full(x_data.shape[1], np.inf)
 
     # @staticmethod
     def rand_w(self):
         r"""Generate a random coefficient within a specified range."""
-        return str(np.random.randint(low=self.coefficient_range[0], high=self.coefficient_range[1]))
+        return str(np.round(np.random.uniform(
+            low=self.coefficient_range[0],
+            high=self.coefficient_range[1],
+        ), 2))
 
     def random_prog(self, depth=0):
         r"""Method to generate a random program/tree structure.
@@ -183,8 +184,10 @@ class VecSymRegressor:
         """
         offspring = deepcopy(selected)
         mutate_point = self.select_random_node(offspring, None, 0)
-        child_count = len(mutate_point["children"])
-        mutate_point["children"][randint(0, child_count - 1)] = self.random_prog(0)
+        if mutate_point:
+            child_count = len(mutate_point.get("children", []))
+            if child_count > 0:
+                mutate_point["children"][randint(0, child_count - 1)] = self.random_prog(0)
         return offspring
 
     def do_xover(self, selected1, selected2):
@@ -201,8 +204,10 @@ class VecSymRegressor:
         offspring = deepcopy(selected1)
         xover_point1 = self.select_random_node(offspring, None, 0)
         xover_point2 = self.select_random_node(selected2, None, 0)
-        child_count = len(xover_point1["children"])
-        xover_point1["children"][randint(0, child_count - 1)] = xover_point2
+        if xover_point1 and xover_point2 and "children" in xover_point1:
+            child_count = len(xover_point1["children"])
+            if child_count > 0:
+                xover_point1["children"][randint(0, child_count - 1)] = deepcopy(xover_point2)
         return offspring
 
     def get_random_parent(self, popu, fitne):
@@ -268,13 +273,16 @@ class VecSymRegressor:
             Mean squared error.
         """
         m = func.count('x')
-        if m == 0 or m == 1:
+        if m == 0:
             return float("inf")
         else:
-            mse = np.mean(np.square(pred - label))
-            return mse
+            try:
+                mse = np.mean(np.square(pred - label))
+                return mse
+            except Exception:
+                return float("inf")
 
-    def fit(self, X, y):
+    def fit(self, X, y, callback=None):
         r"""The symbolic regression algorithm is performed to fit the data.
 
         Args:
@@ -297,8 +305,12 @@ class VecSymRegressor:
             fitness = []
             # Evaluate each program and calculate its fitness score
             for prog in self.population:
-                func, prediction = self.evaluate(self.simp(prog), X)
-                score = self.compute_fitness(func, prediction, y)
+                try:
+                    func, prediction = self.evaluate(self.simp(prog), X)
+                    score = self.compute_fitness(func, prediction, y)
+                except Exception:
+                    func = ""
+                    score = float("inf")
                 fitness.append(score)
 
                 # Update global best program if the current one performs better
@@ -314,6 +326,12 @@ class VecSymRegressor:
                     if score < key_sort[-1]:
                         self.box.pop(key_sort[-1])
                         self.box[score] = prog
+
+            if callback:
+                should_stop = callback(generation=gen, engine=self, loss=self.global_best)
+                if should_stop:
+                    print(f"[VecSymRegressor] Stopped by callback at generation {gen}")
+                    break
 
             # If saving, write the generation number and best program to the log file
             if self.save:
@@ -347,4 +365,3 @@ class VecSymRegressor:
 
         # Set the attribute 'neuron' to the best program
         self.neuron = self.best_program
-

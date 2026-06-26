@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import matplotlib.pyplot as plt
 from typing import Optional
 from itertools import product
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -23,10 +22,10 @@ def random_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-class PolyTensorRegression(nn.Module):
+class PolyTensorRegressor(nn.Module):
     def __init__(self,
-                 rank,
-                 poly_order,
+                 rank=3,
+                 poly_order=3,
                  method='cp',
                  reg_lambda_w=0.01,
                  reg_lambda_c=0.05,
@@ -38,8 +37,9 @@ class PolyTensorRegression(nn.Module):
                  device: Optional[torch.device] = None,
                  track_callback = None,
                  random_state: Optional[int] = None):
-        super(PolyTensorRegression, self).__init__()
-        random_seed(random_state)
+        super().__init__()
+        if random_state is not None:
+            random_seed(random_state)
         self.rank = rank
         self.poly_order = poly_order
         self.method = method      
@@ -206,6 +206,8 @@ class PolyTensorRegression(nn.Module):
             print(f'Epoch {epoch+1}/{self.num_epochs}, Loss: {epoch_loss:.4f}')
 
         if view_training_process:
+            import matplotlib.pyplot as plt
+
             plt.plot(losses)
             plt.show()
 
@@ -239,9 +241,9 @@ class PolyTensorRegression(nn.Module):
         c_sin_value = self.C_sin.item()
         if abs(c_sin_value) > threshold:
             if c_sin_value >= 0:
-                term = f'+ {c_sin_value:.4f} @ sin(x)'
+                term = f'+ {c_sin_value:.4f} @ torch.sin(x)'
             else:
-                term = f'- {abs(c_sin_value):.4f} @ sin(x)'
+                term = f'- {abs(c_sin_value):.4f} @ torch.sin(x)'
             significant_terms.append(term)
 
         polynomial = ' '.join(significant_terms)
@@ -278,3 +280,7 @@ class PolyTensorRegression(nn.Module):
                 return predicted_labels
             else:
                 return outputs.view(-1)
+
+
+PolyTensorRegression = PolyTensorRegressor
+PolynomialTensorRegression = PolyTensorRegressor
