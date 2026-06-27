@@ -142,10 +142,10 @@ clf.fit(X_train, y_train)
 clf.predict(X_test)
 ```
 
-Another quick example to show you how to use polynomial tensor regressor to build neurons:
+Another quick example to show you how to use NeuronSeek-TD's polynomial tensor regressor to build neurons:
 
 ```python
-from tnlearn import PolyTensorRegression
+from tnlearn import PolyTensorRegressor
 from tnlearn import MLPRegressor
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
@@ -154,11 +154,13 @@ from sklearn.model_selection import train_test_split
 X, y = make_regression(n_samples=200, random_state=1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
-# A polynomial tensor regressor is used to generate task-based neurons.
-neuron = PolyTensorRegression()
+# NeuronSeek-TD searches active polynomial orders with L0 gates.
+neuron = PolyTensorRegressor(rank=3, poly_order=3)
 neuron.fit(X_train, y_train)
+print(neuron.structure_)
+print(neuron.neuron)
 
-# Build neural network using task-based neurons and train it.
+# Build neural network using the exported unit-coefficient terms and train it.
 clf = MLPRegressor(neurons=neuron.neuron，
                    layers_list=[50,30,10]) #Specify the structure of the hidden layers in the MLP.
 clf.fit(X_train, y_train)
@@ -166,6 +168,11 @@ clf.fit(X_train, y_train)
 # Predict
 clf.predict(X_test)
 ```
+
+`PolyTensorRegression` remains available as a backward-compatible alias. The full
+NeuronSeek-TD search result is stored in `structure_`; `neuron` exports selected
+polynomial terms with coefficient `1` for tnlearn's existing `MLPRegressor`
+interface.
 
 ## DrSR: LLM-based Symbolic Regression
 
