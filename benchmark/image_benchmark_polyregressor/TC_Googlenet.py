@@ -12,7 +12,7 @@
 import torch
 import torch.nn as nn
 
-from model.TN_base import TNConvLayer
+from tnlearn import TNConv2d
 
 
 class Inception(nn.Module):
@@ -21,7 +21,7 @@ class Inception(nn.Module):
 
         #1x1conv branch
         self.b1 = nn.Sequential(
-            TNConvLayer(input_channels, n1x1, 1, 1, 0, True),
+            TNConv2d(input_channels, n1x1, kernel_size=1, symbolic_expression='x + torch.sin(x)'),
             # nn.Conv2d(input_channels, n1x1, kernel_size=1),
             nn.BatchNorm2d(n1x1),
             nn.ReLU(inplace=True)
@@ -71,7 +71,7 @@ class GoogleNet(nn.Module):
     def __init__(self, num_class=100):
         super().__init__()
         self.prelayer = nn.Sequential(
-            TNConvLayer(3, 64, 3, 1, 1, True),
+            TNConv2d(3, 64, kernel_size=3, padding=1, bias=False, symbolic_expression='x + torch.sin(x)'),
             # nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
@@ -144,6 +144,6 @@ def tc_googlenet(num_class):
 
 if __name__ == '__main__':
     model = tc_googlenet(10)
-    X = torch.tensor((1, 3, 32, 32), dtype=torch.float32)
+    X = torch.randn(1, 3, 32, 32)
     y = model(X)
     print(y.shape)

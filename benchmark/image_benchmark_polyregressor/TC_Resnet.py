@@ -11,7 +11,7 @@
 import torch
 import torch.nn as nn
 
-from model.TN_base import TNConvLayer
+from tnlearn.modules import TNConv2d
 
 
 class BasicBlock(nn.Module):
@@ -30,7 +30,11 @@ class BasicBlock(nn.Module):
 
         #residual function
         self.residual_function = nn.Sequential(
-            TNConvLayer(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=True),
+            TNConv2d(
+                in_channels, out_channels, kernel_size=3,
+                symbolic_expression='x + torch.sin(x)',
+                bias=False
+            ),
             # nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
@@ -61,7 +65,11 @@ class BottleNeck(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
         super().__init__()
         self.residual_function = nn.Sequential(
-            TNConvLayer(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            TNConv2d(
+                in_channels,out_channels, kernel_size=1,
+                symbolic_expression='x + torch.sin(x)',
+                bias=False
+            ),
             # nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
@@ -91,7 +99,7 @@ class ResNet(nn.Module):
         self.in_channels = 64
 
         self.conv1 = nn.Sequential(
-            TNConvLayer(3, 64, 3, 1, 1, True),
+            TNConv2d(3, 64, kernel_size=3, padding=1, symbolic_expression='x + torch.sin(x)', bias=False),
             # nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True))
@@ -170,6 +178,6 @@ def resnet152(num_class):
 
 if __name__ == '__main__':
     model = tc_resnet101(10)
-    X = torch.tensor((1, 3, 32, 32), dtype=torch.float32)
+    X = torch.randn(1, 3, 32, 32)
     y = model(X)
     print(y.shape)

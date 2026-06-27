@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.TN_base import TNConvLayer
+from tnlearn import TNConv2d
 
 
 class BasicResidualSEBlock(nn.Module):
@@ -68,7 +68,7 @@ class BottleneckResidualSEBlock(nn.Module):
         super().__init__()
 
         self.residual = nn.Sequential(
-            TNConvLayer(in_channels, out_channels, 1, 1, 0, True),
+            TNConv2d(in_channels, out_channels, 1, symbolic_expression='x + torch.sin(x)'),
             # nn.Conv2d(in_channels, out_channels, 1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
@@ -119,7 +119,7 @@ class SEResNet(nn.Module):
         self.in_channels = 64
 
         self.pre = nn.Sequential(
-            TNConvLayer(3, 64, 3, 1, 1, True),
+            TNConv2d(3, 64, 3, padding=1, symbolic_expression='x + torch.sin(x)', bias=True),
             # nn.Conv2d(3, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True)
@@ -178,6 +178,6 @@ def seresnet152():
 
 if __name__ == '__main__':
     model = tc_seresnet101(10)
-    X = torch.tensor((1, 3, 32, 32), dtype=torch.float32)
+    X = torch.randn(1, 3, 32, 32)
     y = model(X)
     print(y.shape)
