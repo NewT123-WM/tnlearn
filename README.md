@@ -154,12 +154,13 @@ from sklearn.model_selection import train_test_split
 X, y = make_regression(n_samples=200, random_state=1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
-# NeuronSeek-TD searches pure powers and CP interaction orders with L0 gates.
+# NeuronSeek-TD searches active polynomial orders with L0 gates.
 neuron = PolyTensorRegressor(rank=3, poly_order=3)
 neuron.fit(X_train, y_train)
 print(neuron.structure_)
+print(neuron.neuron)
 
-# Build neural network using the pure-term expression fallback and train it.
+# Build neural network using the exported unit-coefficient terms and train it.
 clf = MLPRegressor(neurons=neuron.neuron，
                    layers_list=[50,30,10]) #Specify the structure of the hidden layers in the MLP.
 clf.fit(X_train, y_train)
@@ -169,8 +170,9 @@ clf.predict(X_test)
 ```
 
 `PolyTensorRegression` remains available as a backward-compatible alias. The full
-NeuronSeek-TD search result is stored in `structure_`; `neuron` is kept as a
-pure-term expression for tnlearn's existing `MLPRegressor` interface.
+NeuronSeek-TD search result is stored in `structure_`; `neuron` exports selected
+polynomial terms with coefficient `1` for tnlearn's existing `MLPRegressor`
+interface.
 
 ## DrSR: LLM-based Symbolic Regression
 

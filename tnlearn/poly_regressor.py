@@ -405,13 +405,12 @@ class SparseSearchAgent(nn.Module):
 
 class PolyTensorRegressor(nn.Module):
     """
-    NeuronSeek-TD polynomial tensor regressor.
+    NeuronSeek-TD stage-1 polynomial term searcher for tnlearn.
 
-    The search process follows the revised NeuronSeek dual-stream design:
-    pure powers and CP interaction terms are trained jointly, then selected
-    by differentiable L0 gates. The full discovered structure is stored in
-    ``structure_``. ``neuron`` remains a pure-term expression fallback for
-    tnlearn's existing MLPRegressor interface.
+    The search process follows the revised NeuronSeek dual-stream design to
+    select active polynomial orders with differentiable L0 gates. tnlearn's
+    second stage learns its own layer weights, so the exported ``neuron``
+    contains selected terms with unit coefficients only.
     """
 
     def __init__(self,
@@ -449,6 +448,7 @@ class PolyTensorRegressor(nn.Module):
         self.agent = None
         self.neuron = None
         self.structure_ = None
+        self.terms_ = []
         self.logs_ = {'loss': [], 'lambda_val': []}
 
     def _prepare_tensors(self, X, y):
@@ -540,12 +540,13 @@ class PolyTensorRegressor(nn.Module):
             self.logs_['lambda_val'].append(current_lambda)
 
             if self.track_callback:
-                self.track_callback(self.get_structure_info())
+                self.track_callback(self._export_current_neuron())
 
             print(f'Epoch {epoch + 1}/{self.num_epochs}, Loss: {epoch_loss:.4f}, Lambda: {current_lambda:.4f}')
 
         self.structure_ = self.get_structure_info()
-        self.neuron = self._structure_to_neuron(self.structure_)
+        self.terms_ = self._structure_to_terms(self.structure_)
+        self.neuron = self._terms_to_neuron(self.terms_)
 
         if view_training_process:
             import matplotlib.pyplot as plt
@@ -600,14 +601,44 @@ class PolyTensorRegressor(nn.Module):
     def get_significant_polynomial(self):
         if self.structure_ is None:
             self.structure_ = self.get_structure_info()
-        return self._structure_to_neuron(self.structure_)
+        self.terms_ = self._structure_to_terms(self.structure_)
+        self.neuron = self._terms_to_neuron(self.terms_)
+        return self.neuron
 
-    def _structure_to_neuron(self, structure):
+    def _export_current_neuron(self):
+        structure = self.get_structure_info()
+        terms = self._structure_to_terms(structure)
+        return self._terms_to_neuron(terms)
+
+    def _structure_to_terms(self, structure):
         pure_indices = structure.get('pure_indices', [])
-        terms = []
-        for order in pure_indices:
-            terms.append('x' if order == 1 else f'x**{order}')
-        return ' + '.join(terms) if terms else 'x'
+        interact_indices = structure.get('interact_indices', [])
+        orders = sorted(set(pure_indices) | set(interact_indices))
+        if not orders:
+            orders = [1]
+        return [
+            {
+                'coefficient': 1,
+                'order': order,
+                'expression': 'x' if order == 1 else f'x**{order}',
+                'source': self._term_source(order, pure_indices, interact_indices),
+            }
+            for order in orders
+        ]
+
+    @staticmethod
+    def _term_source(order, pure_indices, interact_indices):
+        in_pure = order in pure_indices
+        in_interact = order in interact_indices
+        if in_pure and in_interact:
+            return 'pure+interact'
+        if in_interact:
+            return 'interact'
+        return 'pure'
+
+    @staticmethod
+    def _terms_to_neuron(terms):
+        return ' + '.join(f"{term['coefficient']}@{term['expression']}" for term in terms)
 
 
 PolyTensorRegression = PolyTensorRegressor
