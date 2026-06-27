@@ -351,7 +351,8 @@ class L0Gate(nn.Module):
         return x * z
 
     def regularization_term(self):
-        return torch.sigmoid(self.log_alpha - self.temp * np.log(-self.limit_l / self.limit_r))
+        log_ratio = torch.log(torch.tensor(-self.limit_l / self.limit_r, device=self.log_alpha.device, dtype=self.log_alpha.dtype))
+        return torch.sigmoid(self.log_alpha - self.temp * log_ratio)
 
     def get_prob(self):
         return torch.sigmoid(self.log_alpha).item()
