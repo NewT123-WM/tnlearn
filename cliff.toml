@@ -7,11 +7,28 @@ output = "CHANGELOG.md"
 
 [changelog]
 header = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n"
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | split(pat=\"\\n\") | first | trim }}
+{%- endfor %}
+{% endfor %}
+"""
+footer = ""
 
-[commit_types]
-feat = { changelog_title = "🚀 Features" }
-fix = { changelog_title = "🐛 Bug Fixes" }
-refactor = { changelog_title = "🔨 Refactoring" }
-perf = { changelog_title = "⚡ Performance Improvements" }
-docs = { changelog_title = "📚 Documentation" }
-chore = { changelog_title = "🧹 Maintenance" }
+[[commit_parsers]]
+message = "^feat:.*"
+changelog_title = "Added"
+
+[[commit_parsers]]
+message = "^fix:.*"
+changelog_title = "Fixed"
+
+[[commit_parsers]]
+message = "^perf:.*"
+changelog_title = "Performance"
+
+[[commit_parsers]]
+message = ".*"
+skip = true
