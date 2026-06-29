@@ -216,11 +216,12 @@ Here's our official API documentation, available on [Read the Docs](https://tnle
 If you find Tnlearn useful, please cite it in your publications.
 
 ```bibtex
-@article{fan2024no,
-  title={No One-Size-Fits-All Neurons: Task-based Neurons for Artificial Neural Networks},
+@article{fan2026no,
+  title={No one-size-fits-all neurons: Task-based neurons for artificial neural networks},
   author={Fan, Feng-Lei and Wang, Meng and Dong, Hang-Cheng and Ma, Jianwei and Zeng, Tieyong},
-  journal={arXiv preprint arXiv:2405.02369},
-  year={2024}
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  year={2026},
+  publisher={IEEE}
 }
 ```
 
