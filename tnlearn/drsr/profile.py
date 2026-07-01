@@ -1,111 +1,207 @@
-"""轻量化实验记录：保留样本 JSON 输出，移除 TensorBoard 依赖。
+# Copyright 2023 DeepMind Technologies Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+# This file is based on the DRSR project (https://github.com/scientific-intelligent-modelling/drsr)
+# and has been modified for vectorized symbolic regression.
 
-Profiler 现在直接接收 results_root（实验根目录），
-在 results_root/samples 下输出每个样本的 JSON 文件。
-"""
-
+# drsr/profile.py
+# 实验采样/评估的简单记录器（去除 TensorBoard 依赖，仅保留 JSON 与控制台输出）
 from __future__ import annotations
 
-import os.path
-from typing import List, Dict
+import os
+from typing import List, Dict, Any, Optional
 import logging
 import json
+from . import llm
 from . import code_manipulation
-# 移除对 TensorBoard 的依赖，避免安装额外包
 
 
 class Profiler:
     def __init__(
-        self,
-        results_root: str | None = None,
-        pkl_dir: str | None = None,
-        max_log_nums: int | None = None,
-        samples_per_iteration: int | None = None,
+            self,
+            log_dir: str | None = None,
+            pkl_dir: str | None = None,
+            max_log_nums: int | None = None,
+            samples_per_iteration: int | None = None,
+            target_variance: Optional[float] = None,
+            persist_all_samples: bool = False,
+            wandb_run=None,
     ):
-        """
-        Args:
-            results_root: 实验根目录（samples JSON 将保存在此目录下的 samples 子目录）。
-            pkl_dir     : save the results to a pkl file.
-            max_log_nums: stop logging if exceeding max_log_nums.
-        """
         logging.getLogger().setLevel(logging.INFO)
-        self._results_root = results_root or '.'
-        # samples 输出目录：results_root/samples
-        self._json_dir = os.path.join(self._results_root, 'samples')
+        self._log_dir = log_dir
+        self._json_dir = os.path.join(log_dir, 'samples')
         os.makedirs(self._json_dir, exist_ok=True)
-        # 进度与历史最优目录/文件
-        self._progress_path = os.path.join(self._results_root, 'progress.json')
-        self._best_history_dir = os.path.join(self._results_root, 'best_history')
+        self._best_history_dir = os.path.join(log_dir, 'best_history')
         os.makedirs(self._best_history_dir, exist_ok=True)
-
+        self._samples_per_iteration = samples_per_iteration or 1
+        self._persist_all_samples = bool(persist_all_samples)
+        self._target_variance: Optional[float] = target_variance
+        self._progress_json_path = os.path.join(log_dir, 'progress.json')
         self._max_log_nums = max_log_nums
         self._num_samples = 0
         self._cur_best_program_sample_order = None
-        self._cur_best_program_score = -99999999
+        self._cur_best_program_mse: Optional[float] = None
+        self._cur_best_program_nmse: Optional[float] = None
         self._cur_best_program_str = None
         self._evaluate_success_program_num = 0
         self._evaluate_failed_program_num = 0
         self._tot_sample_time = 0
         self._tot_evaluate_time = 0
         self._all_sampled_functions: Dict[int, code_manipulation.Function] = {}
-        # 仅保留 samples 目录下分数最高的前 K 个样本 JSON
-        self._keep_top_k_samples: int = 10
-
-        # iteration 与全局最佳跟踪
-        self._samples_per_iteration: int | None = (
-            int(samples_per_iteration) if samples_per_iteration and samples_per_iteration > 0 else None
-        )
-        self._progress_records: list[dict] = []
-        self._global_best_score = None
-        self._global_best_sample_order = None
-
-        # 不再创建 TensorBoard 写入器
+        self._top_k = 10
         self._writer = None
-
         self._each_sample_best_program_score = []
         self._each_sample_evaluate_success_program_num = []
         self._each_sample_evaluate_failed_program_num = []
         self._each_sample_tot_sample_time = []
         self._each_sample_tot_evaluate_time = []
+        self._iteration_progress: Dict[int, Dict[str, Any]] = {}
+        self._wandb_run = wandb_run
 
     def _write_tensorboard(self):
-        """兼容旧接口：不再写入 TensorBoard。"""
         return
 
-    def _write_json(self, programs: code_manipulation.Function):
-        """为当前样本写入单独 JSON，并刷新 Top-K 文件。"""
-        # 1) 写入单个样本文件：samples/samples_<sample_order>.json
-        sample_order = programs.global_sample_nums or 0
-        score = programs.score
-        iteration = self._compute_iteration(int(sample_order))
-        function_str = str(programs)
+    def _compute_iteration_index(self, sample_order: int | None) -> int | None:
+        if sample_order is None:
+            return None
+        if self._samples_per_iteration <= 0:
+            return sample_order
+        return int((int(sample_order) - 1) // self._samples_per_iteration) + 1
 
-        # 字段顺序：iteration -> sample_order -> score -> function -> params
+    def _build_content(self, programs: code_manipulation.Function) -> Dict:
+        sample_order = programs.global_sample_nums
+        sample_order = sample_order if sample_order is not None else 0
+        iteration_idx = self._compute_iteration_index(sample_order)
+        function_str = str(programs)
+        score = programs.score
+        if score is None:
+            mse = None
+            nmse = None
+        else:
+            mse = -float(score)
+            if self._target_variance is not None and self._target_variance > 0:
+                nmse = mse / float(self._target_variance)
+            else:
+                nmse = None
+        params = programs.params
         content = {
-            "iteration": iteration,
-            "sample_order": int(sample_order),
-            "score": score,
-            "function": function_str,
+            'iteration': iteration_idx,
+            'sample_order': sample_order,
+            'nmse': nmse,
+            'mse': mse,
+            'function': function_str,
+            'params': params,
+        }
+        return content
+
+    def _write_json(self, programs: code_manipulation.Function):
+        sample_order = programs.global_sample_nums
+        sample_order = sample_order if sample_order is not None else 0
+        content = self._build_content(programs)
+        path = os.path.join(self._json_dir, f'samples_{sample_order}.json')
+        with open(path, 'w') as json_file:
+            json.dump(content, json_file)
+
+    def _write_topk_json(self):
+        try:
+            for fname in os.listdir(self._json_dir):
+                if fname.startswith('top') and fname.endswith('.json'):
+                    try:
+                        os.remove(os.path.join(self._json_dir, fname))
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
+        scored_items = []
+        for order, func in self._all_sampled_functions.items():
+            score = getattr(func, 'score', None)
+            if score is None:
+                continue
+            mse = -float(score)
+            if self._target_variance is not None and self._target_variance > 0:
+                nmse = mse / float(self._target_variance)
+            else:
+                nmse = None
+            scored_items.append((order, func, mse, nmse))
+
+        if not scored_items:
+            return
+
+        def _sort_key(item):
+            _, _, mse_val, nmse_val = item
+            key_val = nmse_val if nmse_val is not None else mse_val
+            return key_val if key_val is not None else float('inf')
+
+        scored_items.sort(key=_sort_key)
+        top_items = scored_items[: self._top_k]
+
+        for idx, (order, func, _, _) in enumerate(top_items, start=1):
+            prefix = f'top{idx:02d}_'
+            content = self._build_content(func)
+            filename = f'{prefix}samples_{order}.json'
+            path = os.path.join(self._json_dir, filename)
+            with open(path, 'w') as json_file:
+                json.dump(content, json_file)
+
+    def _save_best_history_sample(self, programs: code_manipulation.Function, sample_orders: int):
+        if self._best_history_dir is None:
+            return
+        content = self._build_content(programs)
+        filename = f'best_sample_{sample_orders}.json'
+        path = os.path.join(self._best_history_dir, filename)
+        with open(path, 'w') as json_file:
+            json.dump(content, json_file)
+
+    def _update_iteration_progress(self, sample_orders: int):
+        if self._cur_best_program_sample_order is None:
+            return
+        iteration_idx = self._compute_iteration_index(sample_orders)
+        if iteration_idx is None:
+            return
+        prev_record = self._iteration_progress.get(iteration_idx)
+        record = {
+            'iteration': iteration_idx,
+            'best_nmse': self._cur_best_program_nmse,
+            'best_mse': self._cur_best_program_mse,
+            'best_sample_order': self._cur_best_program_sample_order,
         }
         try:
-            if getattr(programs, "optimized_params", None) is not None:
-                content["params"] = list(programs.optimized_params)
+            tokens = llm.get_global_tokens()
         except Exception:
-            pass
-
-        path = os.path.join(self._json_dir, f"samples_{sample_order}.json")
+            tokens = {}
         try:
-            with open(path, "w", encoding="utf-8") as json_file:
-                json.dump(content, json_file, ensure_ascii=False, indent=2)
+            total_time = llm.get_global_time()
         except Exception:
-            # 单个样本写失败不影响主流程
-            pass
+            total_time = None
 
-        # 2) 基于所有样本重新计算 Top-K，并写入 topXX_ 前缀文件
+        record['llm_tokens'] = tokens
+        if total_time is not None:
+            record['llm_time_seconds'] = round(float(total_time), 2)
+        self._iteration_progress[iteration_idx] = record
+
+        if self._wandb_run and record != prev_record:
+            try:
+                self._wandb_run.log(record, step=iteration_idx)
+            except Exception:
+                pass
+
+        history = [self._iteration_progress[k] for k in sorted(self._iteration_progress.keys())]
         try:
-            self._prune_samples_dir_topk()
+            with open(self._progress_json_path, 'w', encoding='utf-8') as f:
+                json.dump(history, f, ensure_ascii=False, indent=2)
         except Exception:
-            # 精简/重写失败不影响主流程
             pass
 
     def register_function(self, programs: code_manipulation.Function):
@@ -118,96 +214,10 @@ class Profiler:
             self._all_sampled_functions[sample_orders] = programs
             self._record_and_verbose(sample_orders)
             self._write_tensorboard()
-            self._write_json(programs)
-            # 在写入 samples 之后，更新进度与历史最优记录
-            try:
-                self._update_progress_and_history(programs)
-            except Exception:
-                # 进度记录失败不影响主流程
-                pass
-
-    def _compute_iteration(self, sample_order: int) -> int:
-        """
-        根据全局 sample_order 估算 iteration 编号。
-        若未提供 samples_per_iteration，则统一视为第 1 轮。
-        """
-        if not isinstance(sample_order, int) or sample_order <= 0:
-            return 1
-        if not self._samples_per_iteration or self._samples_per_iteration <= 0:
-            return 1
-        # 按 samples_per_iteration 分组，1-based
-        return (sample_order - 1) // self._samples_per_iteration + 1
-
-    def _update_progress_and_history(self, programs: code_manipulation.Function):
-        """
-        更新 progress.json 与 best_history 目录：
-        - progress.json：每个 iteration 的全局最佳记录
-        - best_history：每次全局最优被刷新时，保存对应 sample 的完整信息
-        """
-        sample_order: int = programs.global_sample_nums or 0
-        score = programs.score
-        if not isinstance(score, (int, float)):
-            return
-
-        iteration = self._compute_iteration(sample_order)
-
-        # 1. 若是全局最优被刷新，则追加一条历史最优样本
-        is_new_global_best = (
-            self._global_best_score is None or score > self._global_best_score
-        )
-        if is_new_global_best:
-            self._global_best_score = float(score)
-            self._global_best_sample_order = int(sample_order)
-
-            # 写入 best_history/best_sample_<sample_order>.json
-            function_str = str(programs)
-            content = {
-                "iteration": iteration,
-                "sample_order": self._global_best_sample_order,
-                "score": self._global_best_score,
-                "function": function_str,
-            }
-            try:
-                if getattr(programs, "optimized_params", None) is not None:
-                    content["params"] = list(programs.optimized_params)
-            except Exception:
-                pass
-
-            best_path = os.path.join(
-                self._best_history_dir,
-                f"best_sample_{self._global_best_sample_order}.json",
-            )
-            try:
-                with open(best_path, "w", encoding="utf-8") as f:
-                    json.dump(content, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
-
-        # 2. 更新 progress.json：确保 iteration 条目存在，并写入“截至该 iteration 的全局最优”
-        # 扩展进度列表到当前 iteration
-        while len(self._progress_records) < iteration:
-            next_iter = len(self._progress_records) + 1
-            # 默认沿用当前全局最优（可能为 None）
-            self._progress_records.append(
-                {
-                    "iteration": next_iter,
-                    "best_score": self._global_best_score,
-                    "best_sample_order": self._global_best_sample_order,
-                }
-            )
-
-        # 当前 iteration 的记录更新为最新的全局最优
-        self._progress_records[iteration - 1]["best_score"] = self._global_best_score
-        self._progress_records[iteration - 1]["best_sample_order"] = (
-            self._global_best_sample_order
-        )
-
-        try:
-            with open(self._progress_path, "w", encoding="utf-8") as f:
-                json.dump(self._progress_records, f, ensure_ascii=False, indent=2)
-        except Exception:
-            # 写进度失败也不终止主流程
-            pass
+            if self._persist_all_samples:
+                self._write_json(programs)
+            self._write_topk_json()
+            self._update_iteration_progress(sample_orders)
 
     def _record_and_verbose(self, sample_orders: int):
         function = self._all_sampled_functions[sample_orders]
@@ -215,23 +225,41 @@ class Profiler:
         sample_time = function.sample_time
         evaluate_time = function.evaluate_time
         score = function.score
-        # log attributes of the function
+
+        mse = None
+        nmse = None
+        if score is not None:
+            mse = -float(score)
+            if self._target_variance is not None and self._target_variance > 0:
+                nmse = mse / float(self._target_variance)
+            else:
+                nmse = None
+
         print(f'================= Evaluated Function =================')
         print(f'{function_str}')
         print(f'------------------------------------------------------')
-        print(f'Score        : {str(score)}')
-        print(f'Sample time  : {str(sample_time)}')
+        print(f'MSE         : {mse}')
+        print(f'NMSE        : {nmse}')
+        print(f'Sample time : {str(sample_time)}')
         print(f'Evaluate time: {str(evaluate_time)}')
         print(f'Sample orders: {str(sample_orders)}')
         print(f'======================================================\n\n')
 
-        # update best function in curve
-        if function.score is not None and score > self._cur_best_program_score:
-            self._cur_best_program_score = score
-            self._cur_best_program_sample_order = sample_orders
-            self._cur_best_program_str = function_str
+        if nmse is not None:
+            if (self._cur_best_program_nmse is None) or (nmse < self._cur_best_program_nmse):
+                self._cur_best_program_nmse = nmse
+                self._cur_best_program_mse = mse
+                self._cur_best_program_sample_order = sample_orders
+                self._cur_best_program_str = function_str
+                self._save_best_history_sample(function, sample_orders)
+        elif mse is not None:
+            if (self._cur_best_program_mse is None) or (mse < self._cur_best_program_mse):
+                self._cur_best_program_mse = mse
+                self._cur_best_program_nmse = None
+                self._cur_best_program_sample_order = sample_orders
+                self._cur_best_program_str = function_str
+                self._save_best_history_sample(function, sample_orders)
 
-        # update statistics about function
         if score:
             self._evaluate_success_program_num += 1
         else:
@@ -241,71 +269,3 @@ class Profiler:
             self._tot_sample_time += sample_time
         if evaluate_time:
             self._tot_evaluate_time += evaluate_time
-
-    def _prune_samples_dir_topk(self):
-        """
-        仅保留分数最高的前 K 个样本，并按排名重写文件：
-        - 文件名形如：top01_samples_{sample_order}.json
-        - JSON 字段顺序：iteration -> sample_order -> score -> function -> params
-        """
-        # 1. 收集所有已有样本的分数
-        entries = []
-        for order, func in self._all_sampled_functions.items():
-            try:
-                s = getattr(func, 'score', None)
-                if isinstance(s, (int, float)):
-                    entries.append((order, float(s), func))
-            except Exception:
-                continue
-        if not entries:
-            return
-
-        # 2. 按分数从高到低排序，取前 K 个
-        entries.sort(key=lambda x: x[1], reverse=True)
-        top_k = entries[: max(1, int(self._keep_top_k_samples))]
-
-        # 3. 清空 samples 目录下旧的 Top-K JSON 文件（保留 samples_*.json）
-        try:
-            for name in os.listdir(self._json_dir):
-                if not name.endswith('.json'):
-                    continue
-                # 只删除 top 前缀的文件，保留 samples_*.json
-                if not name.startswith("top"):
-                    continue
-                try:
-                    os.remove(os.path.join(self._json_dir, name))
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-        # 4. 重新按排名写入 topXX_ 前缀的文件
-        for rank, (order, score, func) in enumerate(top_k, start=1):
-            sample_order = order if order is not None else 0
-            function_str = str(func)
-
-            iteration = self._compute_iteration(int(sample_order))
-
-            # 按用户需求的字段顺序组织内容：
-            # iteration -> sample_order -> score -> function -> params
-            content = {
-                "iteration": iteration,
-                "sample_order": sample_order,
-                "score": score,
-                "function": function_str,
-            }
-            # 如果存在优化参数，则追加 params
-            try:
-                if getattr(func, 'optimized_params', None) is not None:
-                    content["params"] = list(func.optimized_params)
-            except Exception:
-                pass
-
-            file_name = f"top{rank:02d}_samples_{sample_order}.json"
-            path = os.path.join(self._json_dir, file_name)
-            try:
-                with open(path, "w", encoding="utf-8") as json_file:
-                    json.dump(content, json_file, ensure_ascii=False, indent=2)
-            except Exception:
-                # 单个样本写失败不影响其它样本
-                continue
