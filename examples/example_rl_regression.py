@@ -31,7 +31,7 @@ rl = RLRegressor(
     max_episodes=200,          # Keep low for demonstration; increase for better results
     max_power=3,
     max_terms=3,
-    use_trigonometric=True,
+    basis_mode='trigonometric',  # Use trigonometric basis functions
     val_split=0.2,
     verbose=True,
 )

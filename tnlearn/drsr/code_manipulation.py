@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+# This file is based on the DRSR project (https://github.com/scientific-intelligent-modelling/drsr)
+# and has been modified for vectorized symbolic regression.
 
 """
 Tools for manipulation of Python code samples. Two main classes:
@@ -32,6 +34,13 @@ import tokenize
 import logging
 
 
+def sanitize_code_text(text: str) -> str:
+    """Clean up control characters in LLM output that would cause the Python parser to crash directly."""
+    if not isinstance(text, str):
+        return text
+    return text.replace('\x00', '')
+
+
 @dataclasses.dataclass
 class Function:
     "" "A parsed Python function. """
@@ -45,7 +54,8 @@ class Function:
     global_sample_nums: int | None = None  
     sample_time: float | None = None  
     evaluate_time: float | None = None  
-    optimized_params: list[float] | None = None  
+    # 额外记录：优化得到的参数（若存在）
+    params: list[float] | None = None  
 
     def __str__(self) -> str:
         return_type = f' -> {self.return_type}' if self.return_type else ''
@@ -60,6 +70,8 @@ class Function:
         return function
 
     def __setattr__(self, name: str, value: str) -> None:
+        if isinstance(value, str):
+            value = sanitize_code_text(value)
         if name == 'body':
             value = value.strip('\n')
 
@@ -162,6 +174,7 @@ class ProgramVisitor(ast.NodeVisitor):
 def text_to_program(text: str) -> Program:
     """ Return Program object by parsing input text using Python AST. """
     try:
+        text = sanitize_code_text(text)
         # Program is composed of some preface (e.g. imports,
         # classes, assignments, ...) followed by a sequence of functions.
         tree = ast.parse(text)
@@ -187,6 +200,7 @@ def text_to_function(text: str) -> Function:
 
 def _tokenize(code: str) -> Iterator[tokenize.TokenInfo]:
     """Transform `code` into Python tokens."""
+    code = sanitize_code_text(code)
     code_bytes = code.encode()
     code_io = io.BytesIO(code_bytes)
     
@@ -261,6 +275,7 @@ def get_functions_called(code: str) -> MutableSet[str]:
 
 def yield_decorated(code: str, module: str, name: str) -> Iterator[str]:
     """Yield names of functions decorated with `@module.name` in `code`. """
+    code = sanitize_code_text(code)
     tree = ast.parse(code)
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):

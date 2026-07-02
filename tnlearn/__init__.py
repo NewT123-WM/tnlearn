@@ -24,7 +24,7 @@ from tnlearn.base import BaseModel
 from tnlearn.base1 import BaseModel1
 from tnlearn.poly_regressor import PolyTensorRegression
 
-from tnlearn.drsr import LLMSymRegressor, discover_neuron_formula
+from tnlearn.drsr import LLMSymRegressor
 from tnlearn.rl_regressor import RLRegressor
 
 from tnlearn.modules import *
@@ -39,7 +39,6 @@ __all__ = [
     'BaseModel1',
     'PolyTensorRegression',
     'LLMSymRegressor',           
-    'discover_neuron_formula',   
     'RLRegressor',              
 ]
 

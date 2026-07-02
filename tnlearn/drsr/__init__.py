@@ -25,19 +25,9 @@ Example:
     >>> print(reg.best_equation_)
 """
 
-# 导出核心 API (必须)
-from .agent import LLMSymRegressor, discover_neuron_formula
+from .agent import LLMSymRegressor
 
-# 导出常用辅助工具，方便用户进行自定义分析 (可选)
-from .analyzer import DataAnalyzer
-from .prompt_config import instruction_prompt, head_template
 
 __all__ = [
-    # 核心 API
     'LLMSymRegressor',
-    'discover_neuron_formula',
-    # 辅助工具
-    'DataAnalyzer',
-    'instruction_prompt',
-    'head_template',
 ]
