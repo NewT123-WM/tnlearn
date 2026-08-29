@@ -18,6 +18,9 @@ Tnlearn is an open source python library. It is based on the symbolic regression
 - [Dependences](#dependences)
 - [Install](#install)
 - [Quick start](#quick-start)
+  - [DrSR: LLM-based Symbolic Regression](#drsr-llm-based-symbolic-regression)
+    - [Quick Start](#quick-start-1)
+    - [Supported LLM Providers](#supported-llm-providers)
 - [API documentation](#api-documentation)
 - [Citation](#citation)
 - [The Team](#the-team)
@@ -227,7 +230,7 @@ If you find Tnlearn useful, please cite it in your publications.
 
 # The Team
 
-Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg), and [Fenglei Fan](https://github.com/FengleiFan).
+Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg),  [Renfeng Peng](https://github.com/JimmyPeng1998) and [Fenglei Fan](https://github.com/FengleiFan).
 
 # License
 
