@@ -230,6 +230,7 @@ If you find Tnlearn useful, please cite it in your publications.
 
 # The Team
 
+Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg), [Fenglei Fan](https://github.com/FengleiFan), and [Shuren Qi](https://github.com/ShurenQi).
 Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Lizhao Xu](https://github.com/xlzion), [Hanyu Pei](https://github.com/HanyuPei22), [Zeyu LI](https://github.com/zyli-math), [Jingxiao Liao](https://github.com/asdvfghg), and [Fenglei Fan](https://github.com/FengleiFan).
 Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg),  [Renfeng Peng](https://github.com/JimmyPeng1998) and [Fenglei Fan](https://github.com/FengleiFan).
 Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg), [Fenglei Fan](https://github.com/FengleiFan), [Yudong Wang](https://github.com/Nanzhilin), and [Can Dong](https://github.com/CanD3333).
