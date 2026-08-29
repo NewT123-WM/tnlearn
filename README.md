@@ -18,6 +18,9 @@ Tnlearn is an open source python library. It is based on the symbolic regression
 - [Dependences](#dependences)
 - [Install](#install)
 - [Quick start](#quick-start)
+  - [DrSR: LLM-based Symbolic Regression](#drsr-llm-based-symbolic-regression)
+    - [Quick Start](#quick-start-1)
+    - [Supported LLM Providers](#supported-llm-providers)
 - [API documentation](#api-documentation)
 - [Citation](#citation)
 - [The Team](#the-team)
@@ -228,6 +231,10 @@ If you find Tnlearn useful, please cite it in your publications.
 # The Team
 
 Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Lizhao Xu](https://github.com/xlzion), [Hanyu Pei](https://github.com/HanyuPei22), [Zeyu LI](https://github.com/zyli-math), [Jingxiao Liao](https://github.com/asdvfghg), and [Fenglei Fan](https://github.com/FengleiFan).
+Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg),  [Renfeng Peng](https://github.com/JimmyPeng1998) and [Fenglei Fan](https://github.com/FengleiFan).
+Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg), [Fenglei Fan](https://github.com/FengleiFan), [Yudong Wang](https://github.com/Nanzhilin), and [Can Dong](https://github.com/CanD3333).
+Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Tansheng Zhu](https://github.com/tshzhu), [Jingxiao Liao](https://github.com/asdvfghg), and [Fenglei Fan](https://github.com/FengleiFan).
+Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Hanyu Pei](https://github.com/HanyuPei22), [Zeyu LI](https://github.com/zyli-math), [Jingxiao Liao](https://github.com/asdvfghg), and [Fenglei Fan](https://github.com/FengleiFan).
 Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg), [Liangchen Tan](https://github.com/Liangchen-0311) and [Fenglei Fan](https://github.com/FengleiFan).
 Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg), [Feifei Zhang](https://github.com/Faye2020), and [Fenglei Fan](https://github.com/FengleiFan).
 Tnlearn is a work by [Meng Wang](https://github.com/NewT123-WM), [Juntong Fan](https://github.com/Juntongkuki), [Hanyu Pei](https://github.com/HanyuPei22), [Tieyun LI](https://github.com/MillenRosen), [Jingxiao Liao](https://github.com/asdvfghg), [Fenglei Fan](https://github.com/FengleiFan), and [Yudong Wang](https://github.com/Nanzhilin).
