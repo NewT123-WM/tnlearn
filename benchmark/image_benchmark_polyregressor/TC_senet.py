@@ -68,7 +68,7 @@ class BottleneckResidualSEBlock(nn.Module):
         super().__init__()
 
         self.residual = nn.Sequential(
-            TNConv2d(in_channels, out_channels, 1, symbolic_expression='x + torch.sin(x)'),
+            TNConv2d(in_channels, out_channels, 1, symbolic_expression='x + sin(x)'),
             # nn.Conv2d(in_channels, out_channels, 1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
@@ -119,7 +119,7 @@ class SEResNet(nn.Module):
         self.in_channels = 64
 
         self.pre = nn.Sequential(
-            TNConv2d(3, 64, 3, padding=1, symbolic_expression='x + torch.sin(x)', bias=True),
+            TNConv2d(3, 64, 3, padding=1, symbolic_expression='x + sin(x)', bias=True),
             # nn.Conv2d(3, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True)

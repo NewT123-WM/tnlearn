@@ -2,10 +2,14 @@
 Transformer with TNLinear for custom neuron aggregation (symbolic expression)
 
 This module provides Transformer components that replace the standard linear layers
-with TNLinear, allowing user-defined base functions (e.g., 'x + torch.sin(x)')
+with TNLinear, allowing user-defined base functions (e.g., 'x + x ** 2')
 inside the feed-forward networks and other linear projections.
 
-Based on PyTorch's torch.nn.modules.transformer.
+Two modes are available:
+- base (default): Uses the standard TNLinear with SymPy/InnerProduct (no .weight).
+- legacy: Uses the eval-based TNLinear implementation (has .weight).
+
+Copyright (c) 2026 Tieyun LI. All Rights Reserved.
 """
 
 import copy
@@ -101,6 +105,7 @@ class TNTransformerEncoderLayer(Module):
         norm_first: if True, layer norm before attention/ff, else after (default=False).
         bias: if False, linear and LayerNorm layers have no bias (default=True).
         symbolic_expression: symbolic expression for TNLinear (default='x').
+        mode: 'base' or 'legacy' (default='base').
         device, dtype: factory kwargs.
     """
     __constants__ = ['norm_first']
@@ -117,22 +122,25 @@ class TNTransformerEncoderLayer(Module):
             norm_first: bool = False,
             bias: bool = True,
             symbolic_expression: str = 'x',
+            mode: str = 'base',
             device=None,
             dtype=None
     ) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
+        self.mode = mode.lower()
         self.self_attn = MultiheadAttention(
             d_model, nhead, dropout=dropout,
             bias=bias, batch_first=batch_first,
             **factory_kwargs
         )
 
-        # Replace Linear with TNLinear
+        # Replace Linear with TNLinear, passing mode
         self.linear1 = TNLinear(
             d_model, dim_feedforward,
             symbolic_expression=symbolic_expression,
             bias=bias,
+            mode=self.mode,
             **factory_kwargs
         )
         self.dropout = Dropout(dropout)
@@ -140,6 +148,7 @@ class TNTransformerEncoderLayer(Module):
             dim_feedforward, d_model,
             symbolic_expression=symbolic_expression,
             bias=bias,
+            mode=self.mode,
             **factory_kwargs
         )
 
@@ -191,7 +200,10 @@ class TNTransformerEncoderLayer(Module):
 
         # fast path (same logic as original, using self.attn etc.)
         why_not_sparsity_fast_path = ''
-        if not src.dim() == 3:
+        # ----- Disable fast path for base mode (no .weight attribute) -----
+        if self.mode == 'base':
+            why_not_sparsity_fast_path = "base mode TNLinear has no .weight attribute"
+        elif not src.dim() == 3:
             why_not_sparsity_fast_path = "input not batched; expected src.dim() of 3"
         elif self.training:
             why_not_sparsity_fast_path = "training is enabled"
@@ -282,7 +294,22 @@ class TNTransformerEncoderLayer(Module):
 
 
 class TNTransformerDecoderLayer(Module):
-    r"""TransformerDecoderLayer with TNLinear."""
+    r"""TransformerDecoderLayer with TNLinear.
+
+    Args:
+        d_model: number of expected features (required).
+        nhead: number of heads (required).
+        dim_feedforward: dimension of feedforward network (default=2048).
+        dropout: dropout value (default=0.1).
+        activation: activation function (default=relu).
+        layer_norm_eps: eps for LayerNorm (default=1e-5).
+        batch_first: if True, input/output shape (batch, seq, feature) (default=False).
+        norm_first: if True, layer norm before attention/ff, else after (default=False).
+        bias: if False, linear and LayerNorm layers have no bias (default=True).
+        symbolic_expression: symbolic expression for TNLinear (default='x').
+        mode: 'base' or 'legacy' (default='base').
+        device, dtype: factory kwargs.
+    """
     __constants__ = ['norm_first']
 
     def __init__(
@@ -297,11 +324,13 @@ class TNTransformerDecoderLayer(Module):
             norm_first: bool = False,
             bias: bool = True,
             symbolic_expression: str = 'x',
+            mode: str = 'base',
             device=None,
             dtype=None
     ) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
+        self.mode = mode.lower()
         self.self_attn = MultiheadAttention(
             d_model, nhead, dropout=dropout,
             batch_first=batch_first, bias=bias,
@@ -317,6 +346,7 @@ class TNTransformerDecoderLayer(Module):
             d_model, dim_feedforward,
             symbolic_expression=symbolic_expression,
             bias=bias,
+            mode=self.mode,
             **factory_kwargs
         )
         self.dropout = Dropout(dropout)
@@ -324,6 +354,7 @@ class TNTransformerDecoderLayer(Module):
             dim_feedforward, d_model,
             symbolic_expression=symbolic_expression,
             bias=bias,
+            mode=self.mode,
             **factory_kwargs
         )
 
@@ -411,6 +442,9 @@ class TNTransformerEncoder(Module):
         self.use_nested_tensor = enable_nested_tensor
         self.mask_check = mask_check
 
+        # Store mode from the encoder layer for fast path control
+        self.mode = encoder_layer.mode
+
         # check fast path compatibility (same as original)
         enc_layer = "encoder_layer"
         why_not_sparsity_fast_path = ''
@@ -465,7 +499,10 @@ class TNTransformerEncoder(Module):
         why_not_sparsity_fast_path = ''
         batch_first = first_layer.self_attn.batch_first
 
-        if not hasattr(self, "use_nested_tensor"):
+        # ----- Disable fast path for base mode (no .weight attribute) -----
+        if self.mode == 'base':
+            why_not_sparsity_fast_path = "base mode TNLinear has no .weight attribute"
+        elif not hasattr(self, "use_nested_tensor"):
             why_not_sparsity_fast_path = "use_nested_tensor attribute not present"
         elif not self.use_nested_tensor:
             why_not_sparsity_fast_path = "self.use_nested_tensor was not True"
@@ -591,6 +628,7 @@ class TNTransformer(Module):
         norm_first: if True, layer norm before attention/ff, else after (default=False).
         bias: if False, linear and LayerNorm layers have no bias (default=True).
         symbolic_expression: symbolic expression for TNLinear (default='x').
+        mode: 'base' or 'legacy' (default='base').
         device, dtype: factory kwargs.
     """
     def __init__(
@@ -609,6 +647,7 @@ class TNTransformer(Module):
             norm_first: bool = False,
             bias: bool = True,
             symbolic_expression: str = 'x',
+            mode: str = 'base',
             device=None,
             dtype=None
     ) -> None:
@@ -622,7 +661,7 @@ class TNTransformer(Module):
             encoder_layer = TNTransformerEncoderLayer(
                 d_model, nhead, dim_feedforward, dropout,
                 activation, layer_norm_eps, batch_first, norm_first,
-                bias, symbolic_expression, **factory_kwargs
+                bias, symbolic_expression, mode, **factory_kwargs
             )
             encoder_norm = LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
             self.encoder = TNTransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
@@ -633,7 +672,7 @@ class TNTransformer(Module):
             decoder_layer = TNTransformerDecoderLayer(
                 d_model, nhead, dim_feedforward, dropout,
                 activation, layer_norm_eps, batch_first, norm_first,
-                bias, symbolic_expression, **factory_kwargs
+                bias, symbolic_expression, mode, **factory_kwargs
             )
             decoder_norm = LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
             self.decoder = TNTransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)

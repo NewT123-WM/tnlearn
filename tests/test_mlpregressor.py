@@ -43,6 +43,7 @@ mlp_regressor = MLPRegressor(neurons='x**2',
                              optimizer_name='adam',
                              max_iter=200,
                              batch_size=16,
+                             mode='lagacy'
                              )
 
 # Train the MLP regressor model on the preprocessed training data

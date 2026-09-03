@@ -16,7 +16,7 @@
 
 __version__ = '0.2.0.dev0'
 
-from tnlearn.regressor import VecSymRegressor
+from tnlearn.gp_regressor import GPSymRegressor, VecSymRegressor
 from tnlearn.mlpregressor import MLPRegressor
 from tnlearn.mlpclassifier import MLPClassifier
 from tnlearn.preprocessing import DataPreprocessor
@@ -25,21 +25,23 @@ from tnlearn.base1 import BaseModel1
 from tnlearn.poly_regressor import PolyTensorRegression
 
 from tnlearn.drsr import LLMSymRegressor
-from tnlearn.rl_regressor import RLRegressor
+from tnlearn.rl_regressor import RLRegressor, RLSymRegressor
 
 from tnlearn.modules import *
 from tnlearn import modules
 
 __all__ = [
-    'VecSymRegressor',
+    'GPSymRegressor',
+    'VecSymRegressor', # legacy
     'MLPRegressor',
     'MLPClassifier',
     'DataPreprocessor',
     'BaseModel',
     'BaseModel1',
-    'PolyTensorRegression',
+    'PolyTensorRegression', # about to be deprecated
     'LLMSymRegressor',           
-    'RLRegressor',              
+    'RLRegressor', # legacy
+    'RLSymRegressor',                   
 ]
 
 if hasattr(modules, '__all__'):

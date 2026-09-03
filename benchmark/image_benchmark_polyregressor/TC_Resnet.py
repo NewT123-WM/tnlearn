@@ -32,7 +32,7 @@ class BasicBlock(nn.Module):
         self.residual_function = nn.Sequential(
             TNConv2d(
                 in_channels, out_channels, kernel_size=3,
-                symbolic_expression='x + torch.sin(x)',
+                symbolic_expression='x + sin(x)',
                 bias=False
             ),
             # nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
@@ -67,7 +67,7 @@ class BottleNeck(nn.Module):
         self.residual_function = nn.Sequential(
             TNConv2d(
                 in_channels,out_channels, kernel_size=1,
-                symbolic_expression='x + torch.sin(x)',
+                symbolic_expression='x + sin(x)',
                 bias=False
             ),
             # nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
@@ -99,7 +99,7 @@ class ResNet(nn.Module):
         self.in_channels = 64
 
         self.conv1 = nn.Sequential(
-            TNConv2d(3, 64, kernel_size=3, padding=1, symbolic_expression='x + torch.sin(x)', bias=False),
+            TNConv2d(3, 64, kernel_size=3, padding=1, symbolic_expression='x + sin(x)', bias=False),
             # nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True))

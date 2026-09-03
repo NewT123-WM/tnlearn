@@ -1,17 +1,13 @@
 """
-Recurrent neural network layers with custom neuron aggregation.
+Recurrent neural network layers with custom neuron aggregation supporting inner‑product cross terms.
 
-This module provides RNN, LSTM, GRU and their cell variants where the input
-is first transformed by a user‑defined symbolic expression (e.g., 'x + torch.sin(x)')
-before being fed into the recurrent computation. The transformation is applied
-element‑wise to the input features and the results are concatenated, effectively
-augmenting the input dimension with learnable non‑linearities.
+Two modes are available:
+- base (default): Uses custom cell implementation with TNLinear and manual loop.
+- legacy: Uses input augmentation + native PyTorch RNN (RNN, LSTM, GRU) modules.
 
-Based on PyTorch's torch.nn.modules.rnn.
+Copyright (c) 2026 Tieyun LI. All Rights Reserved.
 """
 
-import math
-import warnings
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -19,43 +15,54 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Parameter, init
-from torch.nn.utils.rnn import PackedSequence
+from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence, pad_packed_sequence
 
 from .TNlinear import TNLinear
 
 __all__ = [
     'TNRNNBase', 'TNRNN', 'TNLSTM', 'TNGRU',
-    'TNRNNCellBase', 'TNRNNCell', 'TNLSTMCell', 'TNGRUCell'
+    'TNRNNCell', 'TNLSTMCell', 'TNGRUCell'
 ]
 
-# ---------- Global evaluation environment for expression parsing ----------
+# ---------- Helper functions (shared) ----------
+
+def _stack_states(states: List[Tensor], batch_first: bool) -> Tensor:
+    if batch_first:
+        return torch.stack(states, dim=1)
+    else:
+        return torch.stack(states, dim=0)
+
+
+def _unbind_states(output: Tensor, batch_first: bool) -> List[Tensor]:
+    if batch_first:
+        return [output[:, t, :] for t in range(output.size(1))]
+    else:
+        return [output[t, :, :] for t in range(output.size(0))]
+
+
+def _reverse_sequence(inputs: Tensor, seq_lengths: Optional[Tensor] = None,
+                      batch_first: bool = False) -> Tensor:
+    if seq_lengths is None:
+        if batch_first:
+            return inputs.flip(dims=(1,))
+        else:
+            return inputs.flip(dims=(0,))
+    else:
+        return inputs.flip(dims=(1,) if batch_first else (0,))
+
+
+# ---------- Legacy mode helpers (expression parsing) ----------
 _EVAL_GLOBALS = {
     'torch': torch,
     'np': __import__('numpy'),
-    'math': math,
+    'math': __import__('math'),
     'F': F,
 }
 
 
 def _parse_expression(expr: str) -> list:
-    """
-    Parses a symbolic expression and returns a list of callable basis functions.
-
-    The expression is split at the top‑level '+' and '-' operators (respecting
-    parentheses). Only sub‑expressions that contain 'x' are kept; each such
-    sub‑expression is compiled into a lambda function that takes a tensor `x`
-    and returns the transformed tensor. If a term contains '@', the part after
-    '@' is used as the variable expression (the coefficient is ignored).
-
-    Args:
-        expr (str): The symbolic expression, e.g., 'x + torch.sin(x)'.
-
-    Returns:
-        list: A list of callable functions, each accepting a tensor and
-        returning a tensor. If no valid 'x' term is found, returns [lambda x: x].
-    """
+    """Parse symbolic expression and return list of callable basis functions."""
     expr = expr.replace(' ', '')
-    # Split at top‑level '+' and '-', ignoring parentheses
     terms = []
     current = []
     depth = 0
@@ -76,7 +83,6 @@ def _parse_expression(expr: str) -> list:
     for t in terms:
         t = t.lstrip('+-')
         if 'x' in t:
-            # If '@' is present, use the part after it as the variable expression
             if '@' in t:
                 var_expr = t.split('@', 1)[1]
             else:
@@ -84,73 +90,39 @@ def _parse_expression(expr: str) -> list:
             try:
                 fn = eval('lambda x: ' + var_expr, _EVAL_GLOBALS)
             except Exception as e:
-                print(f"Warning: eval failed for '{var_expr}', using identity. Error: {e}")
+                print(f"Legacy: eval failed for '{var_expr}', using identity. Error: {e}")
                 fn = lambda x: x
             funcs.append(fn)
     if not funcs:
-        funcs = [lambda x: x]   # fallback to linear
+        funcs = [lambda x: x]
     return funcs
 
 
 def _augment_input(x: Tensor, funcs: list) -> Tensor:
-    """
-    Applies all basis functions to the input and concatenates the results.
-
-    Args:
-        x (Tensor): Input tensor of shape (..., feature_dim).
-        funcs (list): List of callable functions.
-
-    Returns:
-        Tensor: Augmented tensor with shape (..., feature_dim * len(funcs)).
-    """
+    """Apply all basis functions and concatenate along last dimension."""
     augmented = [func(x) for func in funcs]
     return torch.cat(augmented, dim=-1)
 
 
-# ---------- Multi‑layer RNN base (feature augmentation + native RNN) ----------
+# ========== Multi‑layer RNN base ==========
 
-class TNRNNBase(nn.Module):
-    """
-    Base class for multi‑layer RNNs with custom neuron aggregation.
-
-    This class augments the input by applying the basis functions from the
-    symbolic expression and concatenating the results, then delegates the
-    actual recurrent computation to PyTorch's native RNN, LSTM, or GRU.
-    This approach leverages the efficient `_VF` implementations.
-
-    Args:
-        mode (str): One of 'RNN', 'LSTM', 'GRU'.
-        input_size (int): The number of expected features in the input.
-        hidden_size (int): The number of features in the hidden state.
-        num_layers (int): Number of recurrent layers. Default: 1.
-        bias (bool): If False, the layer does not use bias weights. Default: True.
-        batch_first (bool): If True, input and output tensors are provided as
-            (batch, seq, feature). Default: False.
-        dropout (float): If non‑zero, introduces a Dropout layer on the outputs
-            of each RNN layer except the last. Default: 0.0.
-        bidirectional (bool): If True, becomes a bidirectional RNN. Default: False.
-        symbolic_expression (str): Symbolic expression defining the basis functions.
-            Default: 'x'.
-        device (torch.device, optional): Device for the parameters.
-        dtype (torch.dtype, optional): Data type for the parameters.
-    """
+class _TNRNNBase(nn.Module):
     __constants__ = ['input_size', 'hidden_size', 'num_layers', 'bias',
-                     'batch_first', 'dropout', 'bidirectional', 'symbolic_expression']
+                     'batch_first', 'dropout', 'bidirectional', 'symbolic_expression',
+                     'mode', 'rnn_type']
 
-    def __init__(self,
-                 mode: str,
-                 input_size: int,
-                 hidden_size: int,
-                 num_layers: int = 1,
-                 bias: bool = True,
-                 batch_first: bool = False,
-                 dropout: float = 0.0,
-                 bidirectional: bool = False,
+    def __init__(self, cell_factory, mode: str, rnn_type: str,
+                 input_size: int, hidden_size: int, num_layers: int = 1,
+                 bias: bool = True, batch_first: bool = False,
+                 dropout: float = 0.0, bidirectional: bool = False,
                  symbolic_expression: str = 'x',
-                 device=None,
-                 dtype=None):
+                 device=None, dtype=None):
         super().__init__()
-        self.mode = mode
+        self.mode = mode.lower()
+        if self.mode not in ('base', 'legacy'):
+            raise ValueError("mode must be 'base' or 'legacy'")
+        self.rnn_type = rnn_type  # 'RNN', 'LSTM', or 'GRU'
+
         self.original_input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -159,44 +131,222 @@ class TNRNNBase(nn.Module):
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.symbolic_expression = symbolic_expression
+        self.device = device
+        self.dtype = dtype
 
-        # Parse expression into basis functions
-        self.funcs = _parse_expression(symbolic_expression)
-        self.num_funcs = len(self.funcs)
-        self.augmented_input_size = input_size * self.num_funcs
+        self.num_directions = 2 if bidirectional else 1
+        self.num_cells = num_layers * self.num_directions
 
-        # Create the native RNN module
-        rnn_cls = {'RNN': nn.RNN, 'LSTM': nn.LSTM, 'GRU': nn.GRU}[mode]
-        self.rnn = rnn_cls(
-            input_size=self.augmented_input_size,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            bias=bias,
-            batch_first=batch_first,
-            dropout=dropout,
-            bidirectional=bidirectional,
-            device=device,
-            dtype=dtype
-        )
+        if self.mode == 'legacy':
+            # ---------- Legacy mode: input augmentation + native RNN ----------
+            self.funcs = _parse_expression(symbolic_expression)
+            self.num_funcs = len(self.funcs)
+            self.augmented_input_size = input_size * self.num_funcs
 
-    def _augment(self, x: Tensor) -> Tensor:
-        """Augments the input by applying all basis functions and concatenating."""
-        augmented = [func(x) for func in self.funcs]
-        return torch.cat(augmented, dim=-1)
+            rnn_cls = {'RNN': nn.RNN, 'LSTM': nn.LSTM, 'GRU': nn.GRU}[rnn_type]
+            self.rnn = rnn_cls(
+                input_size=self.augmented_input_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                bias=bias,
+                batch_first=batch_first,
+                dropout=dropout,
+                bidirectional=bidirectional,
+                device=device,
+                dtype=dtype
+            )
+            # For RNN, set nonlinearity if present
+            if rnn_type == 'RNN' and hasattr(self, 'nonlinearity'):
+                self.rnn.nonlinearity = self.nonlinearity
 
-    def forward(self, input: Tensor, hx: Optional[Tensor] = None):
-        """
-        Forward pass of the RNN.
+        else:
+            # ---------- Base mode: custom cells and manual loop ----------
+            self.cells = nn.ModuleList()
+            for layer in range(num_layers):
+                layer_input_size = input_size if layer == 0 else hidden_size * (2 if bidirectional else 1)
+                for direction in range(2 if bidirectional else 1):
+                    cell = cell_factory(
+                        layer_input_size, hidden_size, bias,
+                        symbolic_expression, device, dtype
+                    )
+                    self.cells.append(cell)
 
-        Args:
-            input (Tensor): Input tensor. Shape depends on batch_first.
-            hx (Tensor, optional): Initial hidden state. If not provided, defaults to zeros.
+            if dropout > 0.0:
+                self.dropout_layer = nn.Dropout(dropout)
+            else:
+                self.dropout_layer = None
 
-        Returns:
-            output, hidden_state: Same as the native RNN.
-        """
-        aug_input = self._augment(input)
-        return self.rnn(aug_input, hx)
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Parameters are initialised by the submodules."""
+        pass
+
+    def _default_initial_state(self, batch_size: int, device: torch.device):
+        num = self.num_layers * self.num_directions
+        if self.mode == 'legacy':
+            return None
+        else:
+            if self.rnn_type == 'LSTM':
+                h = torch.zeros(num, batch_size, self.hidden_size, device=device, dtype=self.dtype)
+                c = torch.zeros(num, batch_size, self.hidden_size, device=device, dtype=self.dtype)
+                return (h, c)
+            else:
+                return torch.zeros(num, batch_size, self.hidden_size, device=device, dtype=self.dtype)
+
+    def _prepare_state(self, state, batch_size: int, device: torch.device):
+        if self.mode == 'legacy':
+            return state
+        else:
+            if self.rnn_type == 'LSTM':
+                h, c = state
+                if h.dim() == 2:
+                    h = h.unsqueeze(0)
+                    c = c.unsqueeze(0)
+                    h = h.expand(self.num_layers * self.num_directions, -1, -1).contiguous()
+                    c = c.expand(self.num_layers * self.num_directions, -1, -1).contiguous()
+                elif h.dim() == 3 and h.size(0) == 1:
+                    h = h.expand(self.num_layers * self.num_directions, -1, -1).contiguous()
+                    c = c.expand(self.num_layers * self.num_directions, -1, -1).contiguous()
+                return (h, c)
+            else:
+                if state.dim() == 2:
+                    state = state.unsqueeze(0)
+                    state = state.expand(self.num_layers * self.num_directions, -1, -1).contiguous()
+                return state
+
+    def _forward_impl_base(self, input: Tensor, state: Optional[Union[Tensor, Tuple[Tensor, Tensor]]],
+                           seq_lengths: Optional[Tensor] = None) -> Tuple[Tensor, Union[Tensor, Tuple[Tensor, Tensor]]]:
+        """Base mode: manual loop with cells."""
+        if self.batch_first:
+            input = input.transpose(0, 1)
+        seq_len, batch_size, _ = input.size()
+
+        if state is None:
+            state = self._default_initial_state(batch_size, input.device)
+        else:
+            state = self._prepare_state(state, batch_size, input.device)
+
+        if self.rnn_type == 'LSTM':
+            h0, c0 = state
+            h_list = torch.unbind(h0, dim=0)
+            c_list = torch.unbind(c0, dim=0)
+            h_states = list(h_list)
+            c_states = list(c_list)
+        else:
+            h_list = torch.unbind(state, dim=0)
+            h_states = list(h_list)
+            c_states = None
+
+        layer_input = input
+
+        for layer in range(self.num_layers):
+            dir_outputs = []
+            for direction in range(self.num_directions):
+                cell_idx = layer * self.num_directions + direction
+                cell = self.cells[cell_idx]
+
+                if self.rnn_type == 'LSTM':
+                    h = h_states[cell_idx]
+                    c = c_states[cell_idx]
+                    state_t = (h, c)
+                else:
+                    h = h_states[cell_idx]
+                    state_t = h
+
+                time_outputs = []
+                if direction == 0:  # forward
+                    for t in range(seq_len):
+                        x_t = layer_input[t]
+                        if self.rnn_type == 'LSTM':
+                            h, c = cell(x_t, state_t)
+                            state_t = (h, c)
+                        else:
+                            state_t = cell(x_t, state_t)
+                            h = state_t
+                        time_outputs.append(h)
+                    if self.rnn_type == 'LSTM':
+                        h_states[cell_idx] = h
+                        c_states[cell_idx] = c
+                    else:
+                        h_states[cell_idx] = h
+                    dir_outputs.append(time_outputs)
+                else:  # backward
+                    rev_outputs = []
+                    for t in range(seq_len - 1, -1, -1):
+                        x_t = layer_input[t]
+                        if self.rnn_type == 'LSTM':
+                            h, c = cell(x_t, state_t)
+                            state_t = (h, c)
+                        else:
+                            state_t = cell(x_t, state_t)
+                            h = state_t
+                        rev_outputs.append(h)
+                    time_outputs = rev_outputs[::-1]
+                    if self.rnn_type == 'LSTM':
+                        h_states[cell_idx] = h
+                        c_states[cell_idx] = c
+                    else:
+                        h_states[cell_idx] = h
+                    dir_outputs.append(time_outputs)
+
+            if self.bidirectional:
+                combined = [torch.cat([f, b], dim=-1) for f, b in zip(dir_outputs[0], dir_outputs[1])]
+            else:
+                combined = dir_outputs[0]
+
+            if self.dropout_layer is not None and layer < self.num_layers - 1:
+                combined = [self.dropout_layer(x) for x in combined]
+
+            layer_input = torch.stack(combined, dim=0)
+            if layer == self.num_layers - 1:
+                final_output = layer_input
+
+        if self.batch_first:
+            output = final_output.transpose(0, 1)
+        else:
+            output = final_output
+
+        if self.rnn_type == 'LSTM':
+            h_final = torch.stack(h_states, dim=0).view(self.num_layers * self.num_directions,
+                                                         batch_size, self.hidden_size)
+            c_final = torch.stack(c_states, dim=0).view(self.num_layers * self.num_directions,
+                                                         batch_size, self.hidden_size)
+            final_state = (h_final, c_final)
+        else:
+            h_final = torch.stack(h_states, dim=0).view(self.num_layers * self.num_directions,
+                                                         batch_size, self.hidden_size)
+            final_state = h_final
+
+        return output, final_state
+
+    def _forward_impl_legacy(self, input: Tensor, state: Optional[Union[Tensor, Tuple[Tensor, Tensor]]] = None):
+        """Legacy mode: augment input, delegate to native RNN."""
+        aug_input = _augment_input(input, self.funcs)
+        return self.rnn(aug_input, state)
+
+    def forward(self, input: Union[Tensor, PackedSequence],
+                state: Optional[Union[Tensor, Tuple[Tensor, Tensor]]] = None):
+        if self.mode == 'legacy':
+            if isinstance(input, PackedSequence):
+                input_unpacked, lengths = pad_packed_sequence(input, batch_first=self.batch_first)
+                output, final_state = self._forward_impl_legacy(input_unpacked, state)
+                output_packed = pack_padded_sequence(output, lengths.cpu(),
+                                                      batch_first=self.batch_first,
+                                                      enforce_sorted=False)
+                return output_packed, final_state
+            else:
+                return self._forward_impl_legacy(input, state)
+        else:
+            if isinstance(input, PackedSequence):
+                input_unpacked, lengths = pad_packed_sequence(input, batch_first=self.batch_first)
+                output, final_state = self._forward_impl_base(input_unpacked, state)
+                output_packed = pack_padded_sequence(output, lengths.cpu(),
+                                                      batch_first=self.batch_first,
+                                                      enforce_sorted=False)
+                return output_packed, final_state
+            else:
+                return self._forward_impl_base(input, state)
 
     def extra_repr(self) -> str:
         s = f'input_size={self.original_input_size}, hidden_size={self.hidden_size}'
@@ -211,208 +361,133 @@ class TNRNNBase(nn.Module):
         if self.bidirectional is not False:
             s += f', bidirectional={self.bidirectional}'
         if self.symbolic_expression != 'x':
-            s += f', symbolic_expression={self.symbolic_expression}'
+            s += f', symbolic_expression="{self.symbolic_expression}"'
+        if self.mode != 'base':
+            s += f', mode="{self.mode}"'
         return s
 
     def __getstate__(self):
-        # Remove compiled lambdas for pickling
+        # Remove non-picklable attributes
         state = self.__dict__.copy()
-        state.pop('funcs', None)
+        if self.mode == 'legacy':
+            state.pop('funcs', None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        # Re‑build funcs from the expression
-        self.funcs = _parse_expression(self.symbolic_expression)
+        if self.mode == 'legacy':
+            self.funcs = _parse_expression(self.symbolic_expression)
 
 
-# ---------- Concrete RNN classes ----------
+# ========== Concrete RNN classes ==========
 
-class TNRNN(TNRNNBase):
-    """
-    A multi‑layer RNN with custom neuron aggregation.
-
-    This is the equivalent of :class:`torch.nn.RNN` where the input is first
-    augmented by basis functions defined in `symbolic_expression`.
-
-    Args:
-        input_size (int): Number of input features.
-        hidden_size (int): Number of hidden features.
-        num_layers (int): Number of recurrent layers. Default: 1.
-        nonlinearity (str): The non‑linearity to use: 'tanh' or 'relu'. Default: 'tanh'.
-        bias (bool): If False, no bias weights are used. Default: True.
-        batch_first (bool): If True, input/output shape is (batch, seq, feature). Default: False.
-        dropout (float): Dropout probability. Default: 0.0.
-        bidirectional (bool): If True, becomes bidirectional. Default: False.
-        symbolic_expression (str): Basis function expression. Default: 'x'.
-        device (torch.device, optional): Device for parameters.
-        dtype (torch.dtype, optional): Data type for parameters.
-    """
+class TNRNN(_TNRNNBase):
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1,
                  nonlinearity: str = 'tanh', bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
-                 symbolic_expression: str = 'x', device=None, dtype=None):
-        super().__init__('RNN', input_size, hidden_size, num_layers, bias,
-                         batch_first, dropout, bidirectional, symbolic_expression,
-                         device, dtype)
-        self.rnn.nonlinearity = nonlinearity
+                 symbolic_expression: str = 'x', device=None, dtype=None,
+                 mode: str = 'base'):
+        self.nonlinearity = nonlinearity
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp):
+            return TNRNNCell(in_size, h_size, bias=b, nonlinearity=nonlinearity,
+                             symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode)
+        super().__init__(cell_factory, mode, 'RNN', input_size, hidden_size, num_layers,
+                         bias, batch_first, dropout, bidirectional,
+                         symbolic_expression, device, dtype)
 
 
-class TNLSTM(TNRNNBase):
-    """
-    A multi‑layer LSTM with custom neuron aggregation.
-
-    This is the equivalent of :class:`torch.nn.LSTM` where the input is first
-    augmented by basis functions defined in `symbolic_expression`.
-
-    Args:
-        input_size (int): Number of input features.
-        hidden_size (int): Number of hidden features.
-        num_layers (int): Number of recurrent layers. Default: 1.
-        bias (bool): If False, no bias weights are used. Default: True.
-        batch_first (bool): If True, input/output shape is (batch, seq, feature). Default: False.
-        dropout (float): Dropout probability. Default: 0.0.
-        bidirectional (bool): If True, becomes bidirectional. Default: False.
-        symbolic_expression (str): Basis function expression. Default: 'x'.
-        device (torch.device, optional): Device for parameters.
-        dtype (torch.dtype, optional): Data type for parameters.
-    """
+class TNLSTM(_TNRNNBase):
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1,
                  bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
-                 symbolic_expression: str = 'x', device=None, dtype=None):
-        super().__init__('LSTM', input_size, hidden_size, num_layers, bias,
-                         batch_first, dropout, bidirectional, symbolic_expression,
-                         device, dtype)
+                 symbolic_expression: str = 'x', device=None, dtype=None,
+                 mode: str = 'base'):
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp):
+            return TNLSTMCell(in_size, h_size, bias=b,
+                              symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode)
+        super().__init__(cell_factory, mode, 'LSTM', input_size, hidden_size, num_layers,
+                         bias, batch_first, dropout, bidirectional,
+                         symbolic_expression, device, dtype)
 
 
-class TNGRU(TNRNNBase):
-    """
-    A multi‑layer GRU with custom neuron aggregation.
-
-    This is the equivalent of :class:`torch.nn.GRU` where the input is first
-    augmented by basis functions defined in `symbolic_expression`.
-
-    Args:
-        input_size (int): Number of input features.
-        hidden_size (int): Number of hidden features.
-        num_layers (int): Number of recurrent layers. Default: 1.
-        bias (bool): If False, no bias weights are used. Default: True.
-        batch_first (bool): If True, input/output shape is (batch, seq, feature). Default: False.
-        dropout (float): Dropout probability. Default: 0.0.
-        bidirectional (bool): If True, becomes bidirectional. Default: False.
-        symbolic_expression (str): Basis function expression. Default: 'x'.
-        device (torch.device, optional): Device for parameters.
-        dtype (torch.dtype, optional): Data type for parameters.
-    """
+class TNGRU(_TNRNNBase):
     def __init__(self, input_size: int, hidden_size: int, num_layers: int = 1,
                  bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
-                 symbolic_expression: str = 'x', device=None, dtype=None):
-        super().__init__('GRU', input_size, hidden_size, num_layers, bias,
-                         batch_first, dropout, bidirectional, symbolic_expression,
-                         device, dtype)
+                 symbolic_expression: str = 'x', device=None, dtype=None,
+                 mode: str = 'base'):
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp):
+            return TNGRUCell(in_size, h_size, bias=b,
+                             symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode)
+        super().__init__(cell_factory, mode, 'GRU', input_size, hidden_size, num_layers,
+                         bias, batch_first, dropout, bidirectional,
+                         symbolic_expression, device, dtype)
 
 
-# ---------- Cell versions (using TNLinear for per‑time‑step computation) ----------
+# ---------- Public alias for backward compatibility ----------
+class TNRNNBase(_TNRNNBase):
+    pass
+
+
+# ========== Cell classes ==========
 
 class TNRNNCellBase(nn.Module):
-    """
-    Base class for RNN cells with custom neuron aggregation.
-
-    This class uses :class:`TNLinear` for both input‑to‑hidden and
-    hidden‑to‑hidden projections, applying the basis functions from the
-    symbolic expression inside each linear layer. It is intended to be
-    subclassed by specific cell types.
-
-    Args:
-        input_size (int): Number of input features.
-        hidden_size (int): Number of hidden features.
-        bias (bool): If True, adds a bias to both linear layers.
-        symbolic_expression (str): Basis function expression. Default: 'x'.
-        num_chunks (int): Number of chunks to split the output into (e.g., 4 for LSTM).
-        device (torch.device, optional): Device for parameters.
-        dtype (torch.dtype, optional): Data type for parameters.
-    """
-    __constants__ = ['input_size', 'hidden_size', 'bias', 'symbolic_expression']
+    __constants__ = ['input_size', 'hidden_size', 'bias', 'symbolic_expression', 'mode']
 
     def __init__(self, input_size: int, hidden_size: int, bias: bool,
                  symbolic_expression: str = 'x', num_chunks: int = 1,
-                 device=None, dtype=None):
+                 device=None, dtype=None, mode: str = 'base'):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.bias = bias
         self.symbolic_expression = symbolic_expression
         self.num_chunks = num_chunks
+        self.mode = mode.lower()
 
-        # Input‑to‑hidden linear layer
         self.ih = TNLinear(
             in_features=input_size,
             out_features=num_chunks * hidden_size,
             symbolic_expression=symbolic_expression,
             bias=bias,
             device=device,
-            dtype=dtype
+            dtype=dtype,
+            mode=mode
         )
-        # Hidden‑to‑hidden linear layer
         self.hh = TNLinear(
             in_features=hidden_size,
             out_features=num_chunks * hidden_size,
             symbolic_expression=symbolic_expression,
             bias=bias,
             device=device,
-            dtype=dtype
+            dtype=dtype,
+            mode=mode
         )
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Parameter initialisation (handled internally by TNLinear)."""
         pass
 
     def extra_repr(self) -> str:
-        s = '{input_size}, {hidden_size}'
+        s = f'{self.input_size}, {self.hidden_size}'
         if self.bias is not True:
-            s += ', bias={bias}'
+            s += f', bias={self.bias}'
         if self.symbolic_expression != 'x':
-            s += ', symbolic_expression={symbolic_expression}'
-        return s.format(**self.__dict__)
+            s += f', symbolic_expression={self.symbolic_expression}'
+        if self.mode != 'base':
+            s += f', mode={self.mode}'
+        return s
 
 
 class TNRNNCell(TNRNNCellBase):
-    """
-    An RNN cell with custom neuron aggregation.
-
-    This is the equivalent of :class:`torch.nn.RNNCell` where both linear
-    transformations use :class:`TNLinear` with the given symbolic expression.
-
-    Args:
-        input_size (int): Number of input features.
-        hidden_size (int): Number of hidden features.
-        bias (bool): If True, adds a bias. Default: True.
-        nonlinearity (str): 'tanh' or 'relu'. Default: 'tanh'.
-        symbolic_expression (str): Basis function expression. Default: 'x'.
-        device (torch.device, optional): Device for parameters.
-        dtype (torch.dtype, optional): Data type for parameters.
-    """
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
                  nonlinearity: str = 'tanh', symbolic_expression: str = 'x',
-                 device=None, dtype=None):
+                 device=None, dtype=None, mode: str = 'base'):
         super().__init__(input_size, hidden_size, bias, symbolic_expression,
-                         num_chunks=1, device=device, dtype=dtype)
+                         num_chunks=1, device=device, dtype=dtype, mode=mode)
         self.nonlinearity = nonlinearity
 
     def forward(self, input: Tensor, hx: Optional[Tensor] = None) -> Tensor:
-        """
-        Forward pass of the RNN cell.
-
-        Args:
-            input (Tensor): Input tensor of shape (batch, input_size) or (input_size,).
-            hx (Tensor, optional): Initial hidden state. If not provided, zeros.
-
-        Returns:
-            Tensor: Next hidden state.
-        """
         is_batched = input.dim() == 2
         if not is_batched:
             input = input.unsqueeze(0)
@@ -439,37 +514,13 @@ class TNRNNCell(TNRNNCellBase):
 
 
 class TNLSTMCell(TNRNNCellBase):
-    """
-    An LSTM cell with custom neuron aggregation.
-
-    This is the equivalent of :class:`torch.nn.LSTMCell` where both linear
-    transformations use :class:`TNLinear` with the given symbolic expression.
-
-    Args:
-        input_size (int): Number of input features.
-        hidden_size (int): Number of hidden features.
-        bias (bool): If True, adds a bias. Default: True.
-        symbolic_expression (str): Basis function expression. Default: 'x'.
-        device (torch.device, optional): Device for parameters.
-        dtype (torch.dtype, optional): Data type for parameters.
-    """
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
-                 symbolic_expression: str = 'x', device=None, dtype=None):
+                 symbolic_expression: str = 'x', device=None, dtype=None,
+                 mode: str = 'base'):
         super().__init__(input_size, hidden_size, bias, symbolic_expression,
-                         num_chunks=4, device=device, dtype=dtype)
+                         num_chunks=4, device=device, dtype=dtype, mode=mode)
 
     def forward(self, input: Tensor, hx: Optional[Tuple[Tensor, Tensor]] = None) -> Tuple[Tensor, Tensor]:
-        """
-        Forward pass of the LSTM cell.
-
-        Args:
-            input (Tensor): Input tensor of shape (batch, input_size) or (input_size,).
-            hx (Tuple[Tensor, Tensor], optional): Tuple of (hidden, cell) states.
-                If not provided, both are zeros.
-
-        Returns:
-            Tuple[Tensor, Tensor]: (new_hidden, new_cell).
-        """
         is_batched = input.dim() == 2
         if not is_batched:
             input = input.unsqueeze(0)
@@ -505,36 +556,13 @@ class TNLSTMCell(TNRNNCellBase):
 
 
 class TNGRUCell(TNRNNCellBase):
-    """
-    A GRU cell with custom neuron aggregation.
-
-    This is the equivalent of :class:`torch.nn.GRUCell` where both linear
-    transformations use :class:`TNLinear` with the given symbolic expression.
-
-    Args:
-        input_size (int): Number of input features.
-        hidden_size (int): Number of hidden features.
-        bias (bool): If True, adds a bias. Default: True.
-        symbolic_expression (str): Basis function expression. Default: 'x'.
-        device (torch.device, optional): Device for parameters.
-        dtype (torch.dtype, optional): Data type for parameters.
-    """
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
-                 symbolic_expression: str = 'x', device=None, dtype=None):
+                 symbolic_expression: str = 'x', device=None, dtype=None,
+                 mode: str = 'base'):
         super().__init__(input_size, hidden_size, bias, symbolic_expression,
-                         num_chunks=3, device=device, dtype=dtype)
+                         num_chunks=3, device=device, dtype=dtype, mode=mode)
 
     def forward(self, input: Tensor, hx: Optional[Tensor] = None) -> Tensor:
-        """
-        Forward pass of the GRU cell.
-
-        Args:
-            input (Tensor): Input tensor of shape (batch, input_size) or (input_size,).
-            hx (Tensor, optional): Initial hidden state. If not provided, zeros.
-
-        Returns:
-            Tensor: Next hidden state.
-        """
         is_batched = input.dim() == 2
         if not is_batched:
             input = input.unsqueeze(0)

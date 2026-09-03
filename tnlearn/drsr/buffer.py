@@ -1,3 +1,4 @@
+# drsr/buffer.py
 # Copyright 2023 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,6 @@
 # This file is based on the DRSR project (https://github.com/scientific-intelligent-modelling/drsr)
 # and has been modified for vectorized symbolic regression.
 
-# drsr/buffer.py
 from __future__ import annotations
 
 import copy
@@ -89,6 +89,7 @@ class Island:
         functions_per_prompt: int,
         cluster_sampling_temperature_init: float,
         cluster_sampling_temperature_period: int,
+        mode: str = 'base',      # NEW
     ):
         self._functions_per_prompt = functions_per_prompt
         self._cluster_sampling_temperature_init = cluster_sampling_temperature_init
@@ -97,6 +98,7 @@ class Island:
         )
         self._clusters: dict[Signature, Cluster] = {}
         self._num_programs: int = 0
+        self._mode = mode
 
     def register_program(self, program: str, scores_per_test: ScoresPerTest) -> None:
         signature = _get_signature(scores_per_test)
@@ -110,12 +112,20 @@ class Island:
     def get_prompt(self) -> tuple[str, int]:
         signatures = list(self._clusters.keys())
         if not signatures:
-            return (
-                "def equation_v0(x, params):\n    return params[0] * x\n\n"
-                "def equation_v1(x, params):\n    return params[0]*x + params[1]*np.sin(x)\n\n"
-                "def equation_v2(x, params):\n    return params[0]*x**2 + params[1]\n\n"
-                "def equation_v3(x, params):\n    # write your return statement here\n", 3
-            )
+            if self._mode == 'base':
+                return (
+                    "def equation_v0(x, params):\n    return IP(params[0], x)\n\n"
+                    "def equation_v1(x, params):\n    return IP(params[0], x) + IP(params[1], x**2)\n\n"
+                    "def equation_v2(x, params):\n    return IP(params[0], x) * IP(params[1], x) + IP(params[2], x)\n\n"
+                    "def equation_v3(x, params):\n    # write your return statement here\n    # Example: IP(params[0], x) * IP(params[1], x) * IP(params[2], x) + IP(params[3], x)\n    return IP(params[0], x)", 3
+                )
+            else:  # legacy
+                return (
+                    "def equation_v0(x, params):\n    return params[0] * x\n\n"
+                    "def equation_v1(x, params):\n    return params[0]*x + params[1]*np.sin(x)\n\n"
+                    "def equation_v2(x, params):\n    return params[0]*x**2 + params[1]\n\n"
+                    "def equation_v3(x, params):\n    # write your return statement here\n", 3
+                )
 
         cluster_scores = np.array(
             [self._clusters[signature].score for signature in signatures]
@@ -160,8 +170,10 @@ class ExperienceBuffer:
     def __init__(
         self,
         config: config_lib.ExperienceBufferConfig,
+        mode: str = 'base',      # NEW
     ) -> None:
         self._config = config
+        self._mode = mode
         self._islands: list[Island] = []
         for _ in range(config.num_islands):
             self._islands.append(
@@ -169,6 +181,7 @@ class ExperienceBuffer:
                     config.functions_per_prompt,
                     config.cluster_sampling_temperature_init,
                     config.cluster_sampling_temperature_period,
+                    mode=mode,
                 )
             )
         self._best_score_per_island: list[float] = (
@@ -246,6 +259,7 @@ class ExperienceBuffer:
                 self._config.functions_per_prompt,
                 self._config.cluster_sampling_temperature_init,
                 self._config.cluster_sampling_temperature_period,
+                mode=self._mode,
             )
             self._best_score_per_island[island_id] = -float('inf')
             founder_island_id = np.random.choice(keep_islands_ids)

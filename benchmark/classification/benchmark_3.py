@@ -46,6 +46,7 @@ params = {
     "max_iter": 400,
     "batch_size": 256,
     "lr": 0.01,
+    "mode": 'legacy',
 
 }
 
