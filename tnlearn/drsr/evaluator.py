@@ -1,3 +1,4 @@
+# drsr/evaluator.py
 # Copyright 2023 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,6 @@
 # This file is based on the DRSR project (https://github.com/scientific-intelligent-modelling/drsr)
 # and has been modified for vectorized symbolic regression.
 
-# drsr/evaluator.py
 from __future__ import annotations
 import time
 import multiprocessing
@@ -24,7 +24,7 @@ import re
 from typing import Any, Type, Optional, Dict
 from abc import abstractmethod, ABC
 
-from .template import SINGLE_VAR_TEMPLATE
+from .template import SINGLE_VAR_TEMPLATE_BASE, SINGLE_VAR_TEMPLATE_LEGACY
 from . import buffer
 
 
@@ -44,24 +44,25 @@ class Sandbox(ABC):
 
 
 class LocalSandbox(Sandbox):
-    def __init__(self, verbose=False, numba_accelerate=False, use_multiprocessing=None):
+    def __init__(self, verbose=False, numba_accelerate=False, use_multiprocessing=None, mode='base'):
         self._verbose = verbose
         self._numba_accelerate = numba_accelerate
-        # 自动检测：Windows上默认禁用多进程（因为spawn开销大且易出错），其他系统默认启用
+        # Auto-detect: disable multiprocessing on Windows to avoid spawn overhead and errors
         if use_multiprocessing is None:
             self._use_multiprocessing = (sys.platform != 'win32')
         else:
             self._use_multiprocessing = use_multiprocessing
+        self._mode = mode.lower()
 
     def run(self, program: str, function_to_run: str, function_to_evolve: str,
             inputs: Any, test_input: str, timeout_seconds: int, **kwargs):
         dataset = inputs[test_input]
         if self._use_multiprocessing:
-            # 使用多进程执行（用于Linux/macOS）
             result_queue = multiprocessing.Queue()
             process = multiprocessing.Process(
                 target=self._compile_and_run_function,
-                args=(program, function_to_run, function_to_evolve, dataset, self._numba_accelerate, result_queue, kwargs.get('seed', None))
+                args=(program, function_to_run, function_to_evolve, dataset,
+                      self._numba_accelerate, result_queue, kwargs.get('seed', None))
             )
             process.start()
             process.join(timeout=timeout_seconds)
@@ -75,7 +76,7 @@ class LocalSandbox(Sandbox):
                 self._print_evaluation_details(program, results, **kwargs)
             return results
         else:
-            # 直接执行（用于Windows或禁用多进程时）
+            # Direct execution (Windows or disabled multiprocessing)
             try:
                 all_globals_namespace = {}
                 exec(program, all_globals_namespace)
@@ -108,9 +109,10 @@ class LocalSandbox(Sandbox):
         return None, False
 
     def _print_evaluation_details(self, program, results, **kwargs):
-        print('================= Evaluated Program =================')
-        print(program[:200] + '...' if len(program) > 200 else program)
-        print(f'Score: {results}\n=====================================================\n\n')
+        if self._verbose >= 2:
+            print('================= Evaluated Program =================')
+            print(program[:200] + '...' if len(program) > 200 else program)
+            print(f'Score: {results}\n=====================================================\n\n')
 
     def _compile_and_run_function(self, program, function_to_run, function_to_evolve,
                                   dataset, numba_accelerate, result_queue, seed=None):
@@ -163,18 +165,22 @@ class Evaluator:
         bfgs_maxiter: int = 200,
         complexity_penalty: float = 0.01,
         verbose: bool = False,
+        mode: str = 'base',          # NEW: 'base' or 'legacy'
     ):
         self._database = database
         self._function_to_evolve = function_to_evolve
         self._function_to_run = function_to_run
         self._inputs = inputs
         self._timeout_seconds = timeout_seconds
-        self._sandbox = sandbox_class(verbose=verbose)
+        self._sandbox = sandbox_class(verbose=verbose, mode=mode)
         self._max_params = max_params
         self._n_restarts = n_restarts
         self._bfgs_maxiter = bfgs_maxiter
         self._complexity_penalty = complexity_penalty
         self._verbose = verbose
+        self._mode = mode.lower()
+        if self._mode not in ('base', 'legacy'):
+            raise ValueError("mode must be 'base' or 'legacy'")
 
     def analyse(
         self,
@@ -188,7 +194,13 @@ class Evaluator:
             print(f"Rejected sample due to params inside function argument: {sample[:100]}...")
             return
 
-        program = SINGLE_VAR_TEMPLATE.format(
+        # Choose template based on mode
+        if self._mode == 'base':
+            template = SINGLE_VAR_TEMPLATE_BASE
+        else:
+            template = SINGLE_VAR_TEMPLATE_LEGACY
+
+        program = template.format(
             max_params=self._max_params,
             n_restarts=self._n_restarts,
             bfgs_maxiter=self._bfgs_maxiter,
@@ -230,7 +242,7 @@ class Evaluator:
                 avg_score = sum(scores_per_test.values()) / len(scores_per_test)
                 if self._verbose:
                     print(f"[Evaluator] Body: {sample[:100]}... score={avg_score:.6f}")
-                    
+
             self._database.register_program(
                 sample,
                 island_id,

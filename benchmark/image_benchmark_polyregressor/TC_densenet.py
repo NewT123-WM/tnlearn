@@ -34,7 +34,7 @@ class Bottleneck(nn.Module):
         self.bottle_neck = nn.Sequential(
             nn.BatchNorm2d(in_channels),
             nn.ReLU(inplace=True),
-            TNConv2d(in_channels, inner_channel, kernel_size=1, symbolic_expression='x + torch.sin(x)', bias=True),
+            TNConv2d(in_channels, inner_channel, kernel_size=1, symbolic_expression='x + sin(x)', bias=True),
             # nn.Conv2d(in_channels, inner_channel, kernel_size=1, bias=False),
             nn.BatchNorm2d(inner_channel),
             nn.ReLU(inplace=True),
@@ -79,7 +79,7 @@ class DenseNet(nn.Module):
         #side of the inputs is zero-padded by one pixel to keep
         #the feature-map size fixed.
         # self.conv1 = nn.Conv2d(3, inner_channels, kernel_size=3, padding=1, bias=False)
-        self.conv1 = TNConv2d(3, inner_channels, kernel_size=3, padding=1, symbolic_expression='x + torch.sin(x)', bias=False)
+        self.conv1 = TNConv2d(3, inner_channels, kernel_size=3, padding=1, symbolic_expression='x + sin(x)', bias=False)
         self.features = nn.Sequential()
 
         for index in range(len(nblocks) - 1):

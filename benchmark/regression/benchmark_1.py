@@ -47,6 +47,7 @@ params = {
     "max_iter": 100,
     "batch_size": 10,
     "lr": 0.01,
+    "mode": 'legacy',
 }
 
 clf = MLPRegressor(**params)

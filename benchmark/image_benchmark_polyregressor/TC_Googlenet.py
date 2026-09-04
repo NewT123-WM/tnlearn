@@ -21,7 +21,7 @@ class Inception(nn.Module):
 
         #1x1conv branch
         self.b1 = nn.Sequential(
-            TNConv2d(input_channels, n1x1, kernel_size=1, symbolic_expression='x + torch.sin(x)'),
+            TNConv2d(input_channels, n1x1, kernel_size=1, symbolic_expression='x + sin(x)'),
             # nn.Conv2d(input_channels, n1x1, kernel_size=1),
             nn.BatchNorm2d(n1x1),
             nn.ReLU(inplace=True)
@@ -71,7 +71,7 @@ class GoogleNet(nn.Module):
     def __init__(self, num_class=100):
         super().__init__()
         self.prelayer = nn.Sequential(
-            TNConv2d(3, 64, kernel_size=3, padding=1, bias=False, symbolic_expression='x + torch.sin(x)'),
+            TNConv2d(3, 64, kernel_size=3, padding=1, bias=False, symbolic_expression='x + sin(x)'),
             # nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),

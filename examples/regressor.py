@@ -1,8 +1,8 @@
 import h5py
-from tnlearn import VecSymRegressor
+from tnlearn import GPSymRegressor
 import numpy as np
 
-neuron = VecSymRegressor(random_state=100,
+neuron = GPSymRegressor(random_state=100,
                          pop_size=500,
                          max_generations=20,
                          tournament_size=10,

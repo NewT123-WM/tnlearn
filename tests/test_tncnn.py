@@ -56,7 +56,7 @@ models = []
 inputs = []
 
 # 1. TNLinear
-linear = TNLinear(10, 5, symbolic_expression='x**2+3@torch.sin(x)', bias=True)
+linear = TNLinear(10, 5, symbolic_expression='x**2+3*sin(x)', bias=True)
 x_lin = torch.randn(3, 10)
 y_lin = linear(x_lin)
 print(f"Linear output shape: {y_lin.shape}")
@@ -70,7 +70,7 @@ conv1d = TNConv1d(
     kernel_size=5,
     stride=2,
     padding=1,
-    symbolic_expression='x + torch.sin(x)',
+    symbolic_expression='x + sin(x)',
     padding_mode='reflect'
 )
 x_c1 = torch.randn(2, 3, 100)
@@ -86,7 +86,7 @@ conv2d = TNConv2d(
     kernel_size=3,
     stride=1,
     padding=1,
-    symbolic_expression='x + 0.5@x**2',
+    symbolic_expression='x + 0.5*x**2',
     groups=1,
     dilation=2,
     padding_mode='zeros'
@@ -135,7 +135,7 @@ conv_transpose2d = TNConvTranspose2d(
     kernel_size=4,
     stride=2,
     padding=1,
-    symbolic_expression='x + torch.sin(x)'
+    symbolic_expression='x + sin(x)'
 )
 x_ct2 = torch.randn(1, 3, 32, 32)
 y_ct2 = conv_transpose2d(x_ct2)
@@ -150,7 +150,7 @@ conv_transpose3d = TNConvTranspose3d(
     kernel_size=3,
     stride=2,
     padding=1,
-    symbolic_expression='x + 0.5@x**2'
+    symbolic_expression='x + 0.5*x**2'
 )
 x_ct3 = torch.randn(1, 8, 16, 32, 32)
 y_ct3 = conv_transpose3d(x_ct3)

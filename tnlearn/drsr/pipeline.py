@@ -1,3 +1,4 @@
+# drsr/pipeline.py
 # Copyright 2023 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,6 @@
 # This file is based on the DRSR project (https://github.com/scientific-intelligent-modelling/drsr)
 # and has been modified for vectorized symbolic regression.
 
-# drsr/pipeline.py
 from __future__ import annotations
 from typing import Any, Tuple, Sequence, Optional
 import numpy as np
@@ -44,16 +44,15 @@ def main(
     max_sample_nums: Optional[int],
     class_config: config_lib.ClassConfig,
     **kwargs
-) -> buffer.ExperienceBuffer:   # 返回 database
+) -> buffer.ExperienceBuffer:
     function_to_evolve, function_to_run = _extract_function_names(specification)
+    mode = kwargs.get('mode', 'base')   # NEW
 
-    # Create database
-    database = buffer.ExperienceBuffer(config.experience_buffer)
+    database = buffer.ExperienceBuffer(config.experience_buffer, mode=mode)
 
     extra_prompt = kwargs.get('extra_prompt', '')
     verbose = kwargs.get('verbose', False)
 
-    # Main evaluators
     evaluators = []
     for _ in range(config.num_evaluators):
         evaluators.append(evaluator.Evaluator(
@@ -65,9 +64,9 @@ def main(
             sandbox_class=class_config.sandbox_class,
             complexity_penalty=0.05,
             verbose=verbose,
+            mode=mode,
         ))
 
-    # Create profiler if log_dir provided
     log_dir = kwargs.get('log_dir')
     profiler = None
     if log_dir:
@@ -80,7 +79,6 @@ def main(
         )
         kwargs['profiler'] = profiler
 
-    # Initial evaluation
     initial_body = kwargs.get('initial_body', "return params[0] * x")
     print(f"Initial evaluation with body: {initial_body}")
     evaluators[0].analyse(
@@ -90,7 +88,6 @@ def main(
         **kwargs
     )
 
-    # Seed with nonlinear expressions (using high-precision evaluator)
     print("Seeding additional nonlinear expressions with high-precision BFGS...")
     seed_evaluator = evaluator.Evaluator(
         database,
@@ -104,10 +101,16 @@ def main(
         bfgs_maxiter=300,
         complexity_penalty=0.05,
         verbose=verbose,
+        mode=mode,
     )
-    seed_bodies = [
-        "return params[0]*x + params[1]*x**2",
-    ]
+    if mode == 'base':
+        seed_bodies = [
+            "return IP(params[0], x) + IP(params[1], x) * IP(params[2], x)",
+        ]
+    else:
+        seed_bodies = [
+            "return params[0]*x + params[1]*x**2",
+        ]
     for seed in seed_bodies:
         seed_evaluator.analyse(
             seed,
@@ -116,11 +119,9 @@ def main(
             **kwargs
         )
 
-    # Print database size for debugging
     total = sum(len(island._clusters) for island in database._islands)
     print(f"After initial evaluation and seeding, database has {total} clusters across islands.")
 
-    # Samplers
     samplers = [
         sampler.Sampler(
             database,
@@ -131,6 +132,7 @@ def main(
             llm_class=class_config.llm_class,
             llm_client=kwargs.get('llm_client'),
             extra_prompt=extra_prompt,
+            mode=mode,
         )
         for _ in range(config.num_samplers)
     ]
@@ -138,5 +140,4 @@ def main(
     for s in samplers:
         s.sample(**kwargs)
 
-    # 返回 database 以便调用方在内存中访问最佳个体
     return database

@@ -1,28 +1,28 @@
 """
-Program name: VecSymRegressor Class Testing
-Purpose description: This program is for unit testing the VecSymRegressor class, ensuring the correctness
-                     of its evaluation, simplification, and random weight generation methods. The VecSymRegressor
+Program name: GPSymRegressor Class Testing
+Purpose description: This program is for unit testing the GPSymRegressor class, ensuring the correctness
+                     of its evaluation, simplification, and random weight generation methods. The GPSymRegressor
                      class utilizes evolutionary algorithms for regression tasks, and this testing suite
                      aims to verify functional integrity across its methods using predefined conditions and parameters.
-Tests: This test suite covers the main functional aspects of the VecSymRegressor class using simple assertions
+Tests: This test suite covers the main functional aspects of the GPSymRegressor class using simple assertions
        and is not reliant on synthetic datasets from sklearn's make_regression.
-Note: This testing program assumes the correct implementation of a hypothetical VecSymRegressor class which is
+Note: This testing program assumes the correct implementation of a hypothetical GPSymRegressor class which is
       not part of the sklearn library. It specifically checks that the methods behave as expected when
       called with reasonable inputs.
 """
 
 import unittest
 import numpy as np
-from tnlearn import VecSymRegressor
+from tnlearn import GPSymRegressor
 
 
-# Custom VecSymRegressor testing class inheriting from TestCase in the unittest module
+# Custom GPSymRegressor testing class inheriting from TestCase in the unittest module
 class TestRegressor(unittest.TestCase):
 
     # Set up function to initialize the regressor object before each test
     def setUp(self):
-        # The VecSymRegressor is initialized with various hyperparameters
-        self.regressor = VecSymRegressor(random_state=100,
+        # The GPSymRegressor is initialized with various hyperparameters
+        self.regressor = GPSymRegressor(random_state=100,
                                          pop_size=5000,
                                          max_generations=30,
                                          tournament_size=10,

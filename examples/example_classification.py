@@ -42,6 +42,7 @@ clf = MLPClassifier(
     #            'gamma': 0.2},
     l1_reg=False,
     l2_reg=False,
+    mode='legacy',
 )
 
 clf.fit(X, y)

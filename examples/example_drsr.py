@@ -6,7 +6,8 @@ Data: y = 3 * x^2 + 2 * x + noise
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
-from tnlearn import LLMSymRegressor, MLPRegressor
+from tnlearn import LLMSymRegressor
+from tnlearn.mlpregressor import MLPRegressor
 
 # ============================================================================
 # 1. Generate synthetic data (univariate, polynomial with noise)
@@ -32,7 +33,8 @@ reg = LLMSymRegressor(
     max_iterations=3,
     samples_per_iteration=4,
     verbose=1,          # 0=quiet, 1=basic progress, 2=debug
-    extra_prompt='Polynomial is preferred'
+    extra_prompt='Polynomial is preferred',
+    mode = 'base'
 )
 print("Training LLMSymRegressor to discover the underlying formula...")
 reg.fit(X_train, y_train)
@@ -42,19 +44,20 @@ print("\n" + "="*60)
 print("Discovered equation body (with param placeholders):")
 print(reg.best_equation_)
 print("\nNeuron formula (with optimized coefficients):")
-print(reg.get_neuron_formula())
+print(reg.neuron)
 print("="*60)
 
 # ============================================================================
 # 3. Build MLPRegressor using the discovered neuron formula
 # ============================================================================
 mlp_custom = MLPRegressor(
-    neurons=reg.get_neuron_formula(),   # Use the discovered neuron
+    neurons=reg.neuron,   # Use the discovered neuron
     layers_list=[20, 10],               # Two hidden layers
     activation_funcs='relu',
     max_iter=300,
     batch_size=64,
     lr=0.001,
+    mode = 'base'
 )
 print("\nTraining MLP with the discovered neuron...")
 mlp_custom.fit(X_train, y_train)
