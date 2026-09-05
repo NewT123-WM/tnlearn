@@ -49,17 +49,19 @@ def _process_inner_product(ip, counter):
     new_right = expand(simplify(right))
     return InnerProduct(new_left, new_right)
 
-def parameterize_term_conv(term, counter):
+def parameterize_term_conv(term, counter, already_parametrized=False):
     if term.is_number:
         return 0
     if is_inner_product(term):
         new_ip = _process_inner_product(term, counter)
-        if term.left.is_Number:
-            return new_ip
-        else:
+        # Determine if a new weight symbol was generated (i.e., left operand was a number)
+        created_param = term.left.is_Number
+        if not created_param and not already_parametrized:
             c = symbols('c%d' % counter['c'])
             counter['c'] += 1
             return Mul(c, new_ip)
+        else:
+            return new_ip
     if isinstance(term, Mul):
         inner_products = []
         non_inner = []
@@ -87,7 +89,7 @@ def parameterize_term_conv(term, counter):
         if not inner_products:
             return 1
         result = Mul(*inner_products) if len(inner_products) > 1 else inner_products[0]
-        if not created_param:
+        if not created_param and not already_parametrized:
             c = symbols('c%d' % counter['c'])
             counter['c'] += 1
             result = Mul(c, result)
@@ -97,7 +99,7 @@ def parameterize_term_conv(term, counter):
     counter['w'] += 1
     return InnerProduct(w, new_expr)
 
-def parameterize_expression_conv(expr):
+def parameterize_expression_conv(expr, already_parametrized=False):
     if isinstance(expr, Add):
         terms = list(expr.args)
     else:
@@ -105,7 +107,7 @@ def parameterize_expression_conv(expr):
     counter = {'w': 1, 'b': 1, 'c': 1}
     new_terms = []
     for t in terms:
-        pt = parameterize_term_conv(t, counter)
+        pt = parameterize_term_conv(t, counter, already_parametrized)
         if pt != 0:
             new_terms.append(pt)
     if not new_terms:
@@ -173,6 +175,14 @@ class _TNConvNd(nn.Module):
         padding_mode, bias, device, dtype, ndim, is_transposed, output_padding
         mode (str): 'base' (SymPy+InnerProduct) or 'legacy' (eval-based)
         symbolic_expression (str): expression defining aggregation.
+        already_parametrized (bool): Only effective when mode='base'.
+            If True, the expression is assumed to already contain parameter symbols
+            (e.g., w1, c1). In this case, no extra coefficient 'c' will be automatically
+            added to inner product terms, regardless of whether new weight symbols are
+            generated during parameterization.
+            If False, the original logic applies: an extra coefficient 'c' is added
+            only when no new weight symbol is generated.
+            Default: False.
     """
     __constants__ = ['in_channels', 'out_channels', 'groups', 'kernel_size',
                      'stride', 'padding', 'dilation', 'padding_mode',
@@ -194,7 +204,8 @@ class _TNConvNd(nn.Module):
                  ndim: int = 2,
                  is_transposed: bool = False,
                  output_padding: Union[int, Tuple[int, ...]] = 0,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):
         super().__init__()
         self.ndim = ndim
         self.in_channels = int(in_channels)
@@ -202,6 +213,7 @@ class _TNConvNd(nn.Module):
         self.groups = int(groups)
         self.is_transposed = is_transposed
         self.mode = mode.lower()
+        self.already_parametrized = already_parametrized
         if self.mode not in ('base', 'legacy'):
             raise ValueError("mode must be 'base' or 'legacy'")
 
@@ -232,7 +244,7 @@ class _TNConvNd(nn.Module):
             converted_str = convert_pretty_to_innerproduct(symbolic_expression)
             raw_expr = sympify(converted_str, locals={'InnerProduct': InnerProduct})
             raw_expr = expand(simplify(raw_expr))
-            self.param_expr = parameterize_expression_conv(raw_expr)
+            self.param_expr = parameterize_expression_conv(raw_expr, already_parametrized=already_parametrized)
 
             x_sym = symbols('x')
             all_symbols = self.param_expr.free_symbols if self.param_expr != 0 else set()
@@ -337,6 +349,8 @@ class _TNConvNd(nn.Module):
             s += f', symbolic_expression="{self.symbolic_expression}"'
         if self.mode != 'base':
             s += f', mode="{self.mode}"'
+        if self.already_parametrized != False:
+            s += f', already_parametrized={self.already_parametrized}'
         return s
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -472,11 +486,12 @@ class TNConv1d(_TNConvNd):
                  padding_mode: Literal['zeros', 'reflect', 'replicate', 'circular'] = 'zeros',
                  bias: bool = True,
                  device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding,
                          symbolic_expression, groups, dilation, padding_mode,
                          bias, device, dtype, ndim=1, is_transposed=False,
-                         output_padding=0, mode=mode)
+                         output_padding=0, mode=mode, already_parametrized=already_parametrized)
 
 
 class TNConv2d(_TNConvNd):
@@ -489,11 +504,12 @@ class TNConv2d(_TNConvNd):
                  padding_mode: Literal['zeros', 'reflect', 'replicate', 'circular'] = 'zeros',
                  bias: bool = True,
                  device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding,
                          symbolic_expression, groups, dilation, padding_mode,
                          bias, device, dtype, ndim=2, is_transposed=False,
-                         output_padding=0, mode=mode)
+                         output_padding=0, mode=mode, already_parametrized=already_parametrized)
 
 
 class TNConv3d(_TNConvNd):
@@ -506,11 +522,12 @@ class TNConv3d(_TNConvNd):
                  padding_mode: Literal['zeros', 'reflect', 'replicate', 'circular'] = 'zeros',
                  bias: bool = True,
                  device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding,
                          symbolic_expression, groups, dilation, padding_mode,
                          bias, device, dtype, ndim=3, is_transposed=False,
-                         output_padding=0, mode=mode)
+                         output_padding=0, mode=mode, already_parametrized=already_parametrized)
 
 
 # ========== Transposed convolution classes ==========
@@ -524,11 +541,12 @@ class TNConvTranspose1d(_TNConvNd):
                  dilation: Union[int, Tuple[int]] = 1,
                  bias: bool = True,
                  device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding,
                          symbolic_expression, groups, dilation, 'zeros',
                          bias, device, dtype, ndim=1, is_transposed=True,
-                         output_padding=output_padding, mode=mode)
+                         output_padding=output_padding, mode=mode, already_parametrized=already_parametrized)
 
 
 class TNConvTranspose2d(_TNConvNd):
@@ -541,11 +559,12 @@ class TNConvTranspose2d(_TNConvNd):
                  dilation: Union[int, Tuple[int, int]] = 1,
                  bias: bool = True,
                  device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding,
                          symbolic_expression, groups, dilation, 'zeros',
                          bias, device, dtype, ndim=2, is_transposed=True,
-                         output_padding=output_padding, mode=mode)
+                         output_padding=output_padding, mode=mode, already_parametrized=already_parametrized)
 
 
 class TNConvTranspose3d(_TNConvNd):
@@ -558,8 +577,9 @@ class TNConvTranspose3d(_TNConvNd):
                  dilation: Union[int, Tuple[int, int, int]] = 1,
                  bias: bool = True,
                  device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding,
                          symbolic_expression, groups, dilation, 'zeros',
                          bias, device, dtype, ndim=3, is_transposed=True,
-                         output_padding=output_padding, mode=mode)
+                         output_padding=output_padding, mode=mode, already_parametrized=already_parametrized)

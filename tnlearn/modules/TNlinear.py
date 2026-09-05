@@ -1,5 +1,5 @@
 """
-Linear layer with symbolic aggregation supporting inner‑product cross terms.
+Linear layer with symbolic aggregation supporting inner-product cross terms.
 
 This module provides a fully connected layer where the aggregation function is defined
 by a symbolic expression. Two modes are supported:
@@ -167,6 +167,14 @@ class TNLinear(nn.Module):
         device (torch.device, optional): Device for parameters.
         dtype (torch.dtype, optional): Data type for parameters.
         mode (str): 'base' or 'legacy'. Default 'base'.
+        already_parametrized (bool): Only effective when mode='base'.
+            If True, the expression is assumed to already contain parameter symbols
+            (e.g., w1, c1). In this case, no extra coefficient 'c' will be automatically
+            added to inner product terms, regardless of whether new weight symbols are
+            generated during parameterization.
+            If False, the original logic applies: an extra coefficient 'c' is added
+            only when no new weight symbol is generated.
+            Default: False.
     """
     def __init__(self,
                  in_features: int,
@@ -175,7 +183,9 @@ class TNLinear(nn.Module):
                  bias: bool = True,
                  device=None,
                  dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False
+                    ):
         super().__init__()
         self.in_features = int(in_features)
         self.out_features = int(out_features)
@@ -184,6 +194,7 @@ class TNLinear(nn.Module):
         self.device = device
         self.dtype = dtype
         self.mode = mode.lower()
+        self.already_parametrized = already_parametrized
         if self.mode not in ('base', 'legacy'):
             raise ValueError("mode must be 'base' or 'legacy'")
 
@@ -193,7 +204,8 @@ class TNLinear(nn.Module):
             converted_str = convert_pretty_to_innerproduct(symbolic_expression)
             raw_expr = sympify(converted_str, locals={'InnerProduct': InnerProduct})
             raw_expr = expand(simplify(raw_expr))
-            self.param_expr = parameterize_expression(raw_expr, include_bias=False)
+            self.param_expr = parameterize_expression(raw_expr, include_bias=False,
+                                                      already_parametrized=already_parametrized)
 
             # 2. Extract symbols: w_i (weights) and c_i (coefficients)
             all_symbols = self.param_expr.free_symbols if self.param_expr != 0 else set()
@@ -322,7 +334,8 @@ class TNLinear(nn.Module):
             converted_str = convert_pretty_to_innerproduct(self.symbolic_expression)
             raw_expr = sympify(converted_str, locals={'InnerProduct': InnerProduct})
             raw_expr = expand(simplify(raw_expr))
-            self.param_expr = parameterize_expression(raw_expr, include_bias=False)
+            self.param_expr = parameterize_expression(raw_expr, include_bias=False,
+                                                      already_parametrized=self.already_parametrized)
             self._x_sym = symbols('x')
         else:  # legacy
             # Rebuild funcs from self.terms

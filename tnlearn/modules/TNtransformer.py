@@ -106,6 +106,7 @@ class TNTransformerEncoderLayer(Module):
         bias: if False, linear and LayerNorm layers have no bias (default=True).
         symbolic_expression: symbolic expression for TNLinear (default='x').
         mode: 'base' or 'legacy' (default='base').
+        already_parametrized: bool, passed to TNLinear (default=False).
         device, dtype: factory kwargs.
     """
     __constants__ = ['norm_first']
@@ -123,24 +124,27 @@ class TNTransformerEncoderLayer(Module):
             bias: bool = True,
             symbolic_expression: str = 'x',
             mode: str = 'base',
+            already_parametrized: bool = False,  # NEW
             device=None,
             dtype=None
     ) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
         self.mode = mode.lower()
+        self.already_parametrized = already_parametrized  # NEW
         self.self_attn = MultiheadAttention(
             d_model, nhead, dropout=dropout,
             bias=bias, batch_first=batch_first,
             **factory_kwargs
         )
 
-        # Replace Linear with TNLinear, passing mode
+        # Replace Linear with TNLinear, passing mode and already_parametrized
         self.linear1 = TNLinear(
             d_model, dim_feedforward,
             symbolic_expression=symbolic_expression,
             bias=bias,
             mode=self.mode,
+            already_parametrized=already_parametrized,  # NEW
             **factory_kwargs
         )
         self.dropout = Dropout(dropout)
@@ -149,6 +153,7 @@ class TNTransformerEncoderLayer(Module):
             symbolic_expression=symbolic_expression,
             bias=bias,
             mode=self.mode,
+            already_parametrized=already_parametrized,  # NEW
             **factory_kwargs
         )
 
@@ -308,6 +313,7 @@ class TNTransformerDecoderLayer(Module):
         bias: if False, linear and LayerNorm layers have no bias (default=True).
         symbolic_expression: symbolic expression for TNLinear (default='x').
         mode: 'base' or 'legacy' (default='base').
+        already_parametrized: bool, passed to TNLinear (default=False).
         device, dtype: factory kwargs.
     """
     __constants__ = ['norm_first']
@@ -325,12 +331,14 @@ class TNTransformerDecoderLayer(Module):
             bias: bool = True,
             symbolic_expression: str = 'x',
             mode: str = 'base',
+            already_parametrized: bool = False,  # NEW
             device=None,
             dtype=None
     ) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
         self.mode = mode.lower()
+        self.already_parametrized = already_parametrized  # NEW
         self.self_attn = MultiheadAttention(
             d_model, nhead, dropout=dropout,
             batch_first=batch_first, bias=bias,
@@ -347,6 +355,7 @@ class TNTransformerDecoderLayer(Module):
             symbolic_expression=symbolic_expression,
             bias=bias,
             mode=self.mode,
+            already_parametrized=already_parametrized,  # NEW
             **factory_kwargs
         )
         self.dropout = Dropout(dropout)
@@ -355,6 +364,7 @@ class TNTransformerDecoderLayer(Module):
             symbolic_expression=symbolic_expression,
             bias=bias,
             mode=self.mode,
+            already_parametrized=already_parametrized,  # NEW
             **factory_kwargs
         )
 
@@ -629,6 +639,7 @@ class TNTransformer(Module):
         bias: if False, linear and LayerNorm layers have no bias (default=True).
         symbolic_expression: symbolic expression for TNLinear (default='x').
         mode: 'base' or 'legacy' (default='base').
+        already_parametrized: bool, passed to TNLinear (default=False).
         device, dtype: factory kwargs.
     """
     def __init__(
@@ -648,6 +659,7 @@ class TNTransformer(Module):
             bias: bool = True,
             symbolic_expression: str = 'x',
             mode: str = 'base',
+            already_parametrized: bool = False,  # NEW
             device=None,
             dtype=None
     ) -> None:
@@ -661,7 +673,9 @@ class TNTransformer(Module):
             encoder_layer = TNTransformerEncoderLayer(
                 d_model, nhead, dim_feedforward, dropout,
                 activation, layer_norm_eps, batch_first, norm_first,
-                bias, symbolic_expression, mode, **factory_kwargs
+                bias, symbolic_expression, mode,
+                already_parametrized=already_parametrized,  # NEW
+                **factory_kwargs
             )
             encoder_norm = LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
             self.encoder = TNTransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
@@ -672,7 +686,9 @@ class TNTransformer(Module):
             decoder_layer = TNTransformerDecoderLayer(
                 d_model, nhead, dim_feedforward, dropout,
                 activation, layer_norm_eps, batch_first, norm_first,
-                bias, symbolic_expression, mode, **factory_kwargs
+                bias, symbolic_expression, mode,
+                already_parametrized=already_parametrized,  # NEW
+                **factory_kwargs
             )
             decoder_norm = LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
             self.decoder = TNTransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)

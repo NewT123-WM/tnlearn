@@ -35,22 +35,44 @@ X_train = preprocessor.fit_transform(X_train)
 # Transform test data only
 X_test = preprocessor.transform(X_test)
 
-# Instantiate the MLPRegressor class with specified parameters
-mlp_regressor = MLPRegressor(neurons='x**2',
+# Instantiate the MLPRegressor class with specified parameters. (legacy mode)
+mlp1 = MLPRegressor(neurons='x**2',
                              layers_list=[50, 30, 10],
                              activation_funcs='sigmoid',
                              loss_function='mse',
                              optimizer_name='adam',
                              max_iter=200,
                              batch_size=16,
-                             mode='lagacy'
+                             mode='legacy'
                              )
 
 # Train the MLP regressor model on the preprocessed training data
-mlp_regressor.fit(X_train, y_train)
+mlp1.fit(X_train, y_train)
 
 # Evaluate the model's performance on the test set
-test_score = mlp_regressor.score(X_test, y_test)
+test_score1 = mlp1.score(X_test, y_test)
 
 # Perform predictions using the trained MLP regressor on the test data
-predictions = mlp_regressor.predict(X_test)
+predictions1 = mlp1.predict(X_test)
+
+# Instantiate a second MLPRegressor with a different neuron configuration (base mode)
+mlp2 = MLPRegressor(neurons='<w1, x**2>',
+                             layers_list=[50, 30, 10],
+                             activation_funcs='sigmoid',
+                             loss_function='mse',
+                             optimizer_name='adam',
+                             max_iter=200,
+                             batch_size=16,
+                             mode='base',
+                             already_parametrized=True
+                             )
+
+# Train the second MLP regressor model on the same preprocessed training data
+mlp2.fit(X_train, y_train)
+
+# Evaluate the second model's performance on the test set
+test_score2 = mlp2.score(X_test, y_test)
+
+
+# Perform predictions using the second trained MLP regressor on the test data
+predictions2 = mlp2.predict(X_test)

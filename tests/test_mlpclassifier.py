@@ -32,21 +32,41 @@ X = preprocessor.fit_transform(X)
 # Splitting the dataset into training and test sets with an 80-20 ratio.
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Constructing the neural network classifier with specific parameters.
-mlp = MLPClassifier(neurons='x**2',
+# Constructing the neural network classifier with specific parameters. (legacy mode)
+mlp1 = MLPClassifier(neurons='x**2',
                     layers_list=[10, 10, 10],
                     activation_funcs='sigmoid',
                     optimizer_name='adam',
                     max_iter=200,
                     batch_size=16,
-                    mode='lagacy'
+                    mode='legacy'
                     )
 
 # Training the MLPClassifier using the training data.
-mlp.fit(X_train, y_train)
+mlp1.fit(X_train, y_train)
 
 # Generating predictions for the test set.
-y_pred = mlp.predict(X_test)
+y_pred1 = mlp1.predict(X_test)
 
 # Scoring the model based on accuracy using the predictions and actual labels.
-accuracy = mlp.score(X_test, y_test)
+accuracy1 = mlp1.score(X_test, y_test)
+
+# Constructing a second MLPClassifier with a different neuron configuration (base mode).
+mlp2 = MLPClassifier(neurons='<w1,x**2>',
+                    layers_list=[10, 10, 10],
+                    activation_funcs='sigmoid',
+                    optimizer_name='adam',
+                    max_iter=200,
+                    batch_size=16,
+                    mode='base',
+                    already_parametrized=True
+                    )
+
+# Training the second MLPClassifier using the same training data.
+mlp2.fit(X_train, y_train)
+
+# Generating predictions for the test set using the second model.
+y_pred2 = mlp2.predict(X_test)
+
+# Scoring the second model based on accuracy using its predictions and actual labels.
+accuracy2 = mlp2.score(X_test, y_test)
