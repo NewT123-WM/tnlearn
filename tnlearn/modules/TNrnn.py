@@ -116,7 +116,8 @@ class _TNRNNBase(nn.Module):
                  bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
                  symbolic_expression: str = 'x',
-                 device=None, dtype=None):
+                 device=None, dtype=None,
+                 already_parametrized: bool = False):  # NEW
         super().__init__()
         self.mode = mode.lower()
         if self.mode not in ('base', 'legacy'):
@@ -133,6 +134,7 @@ class _TNRNNBase(nn.Module):
         self.symbolic_expression = symbolic_expression
         self.device = device
         self.dtype = dtype
+        self.already_parametrized = already_parametrized  # NEW
 
         self.num_directions = 2 if bidirectional else 1
         self.num_cells = num_layers * self.num_directions
@@ -155,7 +157,6 @@ class _TNRNNBase(nn.Module):
                 device=device,
                 dtype=dtype
             )
-            # For RNN, set nonlinearity if present
             if rnn_type == 'RNN' and hasattr(self, 'nonlinearity'):
                 self.rnn.nonlinearity = self.nonlinearity
 
@@ -167,7 +168,8 @@ class _TNRNNBase(nn.Module):
                 for direction in range(2 if bidirectional else 1):
                     cell = cell_factory(
                         layer_input_size, hidden_size, bias,
-                        symbolic_expression, device, dtype
+                        symbolic_expression, device, dtype,
+                        already_parametrized=already_parametrized  # NEW
                     )
                     self.cells.append(cell)
 
@@ -179,7 +181,6 @@ class _TNRNNBase(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Parameters are initialised by the submodules."""
         pass
 
     def _default_initial_state(self, batch_size: int, device: torch.device):
@@ -364,10 +365,11 @@ class _TNRNNBase(nn.Module):
             s += f', symbolic_expression="{self.symbolic_expression}"'
         if self.mode != 'base':
             s += f', mode="{self.mode}"'
+        if self.already_parametrized != False:  # NEW
+            s += f', already_parametrized={self.already_parametrized}'
         return s
 
     def __getstate__(self):
-        # Remove non-picklable attributes
         state = self.__dict__.copy()
         if self.mode == 'legacy':
             state.pop('funcs', None)
@@ -386,14 +388,17 @@ class TNRNN(_TNRNNBase):
                  nonlinearity: str = 'tanh', bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
                  symbolic_expression: str = 'x', device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):  # NEW
         self.nonlinearity = nonlinearity
-        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp):
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp, ap):  # added ap
             return TNRNNCell(in_size, h_size, bias=b, nonlinearity=nonlinearity,
-                             symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode)
+                             symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode,
+                             already_parametrized=ap)  # pass ap
         super().__init__(cell_factory, mode, 'RNN', input_size, hidden_size, num_layers,
                          bias, batch_first, dropout, bidirectional,
-                         symbolic_expression, device, dtype)
+                         symbolic_expression, device, dtype,
+                         already_parametrized=already_parametrized)  # NEW
 
 
 class TNLSTM(_TNRNNBase):
@@ -401,13 +406,16 @@ class TNLSTM(_TNRNNBase):
                  bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
                  symbolic_expression: str = 'x', device=None, dtype=None,
-                 mode: str = 'base'):
-        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):  # NEW
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp, ap):  # added ap
             return TNLSTMCell(in_size, h_size, bias=b,
-                              symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode)
+                              symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode,
+                              already_parametrized=ap)  # pass ap
         super().__init__(cell_factory, mode, 'LSTM', input_size, hidden_size, num_layers,
                          bias, batch_first, dropout, bidirectional,
-                         symbolic_expression, device, dtype)
+                         symbolic_expression, device, dtype,
+                         already_parametrized=already_parametrized)  # NEW
 
 
 class TNGRU(_TNRNNBase):
@@ -415,13 +423,16 @@ class TNGRU(_TNRNNBase):
                  bias: bool = True, batch_first: bool = False,
                  dropout: float = 0.0, bidirectional: bool = False,
                  symbolic_expression: str = 'x', device=None, dtype=None,
-                 mode: str = 'base'):
-        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):  # NEW
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp, ap):  # added ap
             return TNGRUCell(in_size, h_size, bias=b,
-                             symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode)
+                             symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode,
+                             already_parametrized=ap)  # pass ap
         super().__init__(cell_factory, mode, 'GRU', input_size, hidden_size, num_layers,
                          bias, batch_first, dropout, bidirectional,
-                         symbolic_expression, device, dtype)
+                         symbolic_expression, device, dtype,
+                         already_parametrized=already_parametrized)  # NEW
 
 
 # ---------- Public alias for backward compatibility ----------
@@ -436,7 +447,8 @@ class TNRNNCellBase(nn.Module):
 
     def __init__(self, input_size: int, hidden_size: int, bias: bool,
                  symbolic_expression: str = 'x', num_chunks: int = 1,
-                 device=None, dtype=None, mode: str = 'base'):
+                 device=None, dtype=None, mode: str = 'base',
+                 already_parametrized: bool = False):  # NEW
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -444,6 +456,7 @@ class TNRNNCellBase(nn.Module):
         self.symbolic_expression = symbolic_expression
         self.num_chunks = num_chunks
         self.mode = mode.lower()
+        self.already_parametrized = already_parametrized  # NEW
 
         self.ih = TNLinear(
             in_features=input_size,
@@ -452,7 +465,8 @@ class TNRNNCellBase(nn.Module):
             bias=bias,
             device=device,
             dtype=dtype,
-            mode=mode
+            mode=mode,
+            already_parametrized=already_parametrized  # NEW
         )
         self.hh = TNLinear(
             in_features=hidden_size,
@@ -461,7 +475,8 @@ class TNRNNCellBase(nn.Module):
             bias=bias,
             device=device,
             dtype=dtype,
-            mode=mode
+            mode=mode,
+            already_parametrized=already_parametrized  # NEW
         )
         self.reset_parameters()
 
@@ -476,15 +491,19 @@ class TNRNNCellBase(nn.Module):
             s += f', symbolic_expression={self.symbolic_expression}'
         if self.mode != 'base':
             s += f', mode={self.mode}'
+        if self.already_parametrized != False:  # NEW
+            s += f', already_parametrized={self.already_parametrized}'
         return s
 
 
 class TNRNNCell(TNRNNCellBase):
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
                  nonlinearity: str = 'tanh', symbolic_expression: str = 'x',
-                 device=None, dtype=None, mode: str = 'base'):
+                 device=None, dtype=None, mode: str = 'base',
+                 already_parametrized: bool = False):  # NEW
         super().__init__(input_size, hidden_size, bias, symbolic_expression,
-                         num_chunks=1, device=device, dtype=dtype, mode=mode)
+                         num_chunks=1, device=device, dtype=dtype, mode=mode,
+                         already_parametrized=already_parametrized)  # NEW
         self.nonlinearity = nonlinearity
 
     def forward(self, input: Tensor, hx: Optional[Tensor] = None) -> Tensor:
@@ -516,9 +535,11 @@ class TNRNNCell(TNRNNCellBase):
 class TNLSTMCell(TNRNNCellBase):
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
                  symbolic_expression: str = 'x', device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):  # NEW
         super().__init__(input_size, hidden_size, bias, symbolic_expression,
-                         num_chunks=4, device=device, dtype=dtype, mode=mode)
+                         num_chunks=4, device=device, dtype=dtype, mode=mode,
+                         already_parametrized=already_parametrized)  # NEW
 
     def forward(self, input: Tensor, hx: Optional[Tuple[Tensor, Tensor]] = None) -> Tuple[Tensor, Tensor]:
         is_batched = input.dim() == 2
@@ -558,9 +579,11 @@ class TNLSTMCell(TNRNNCellBase):
 class TNGRUCell(TNRNNCellBase):
     def __init__(self, input_size: int, hidden_size: int, bias: bool = True,
                  symbolic_expression: str = 'x', device=None, dtype=None,
-                 mode: str = 'base'):
+                 mode: str = 'base',
+                 already_parametrized: bool = False):  # NEW
         super().__init__(input_size, hidden_size, bias, symbolic_expression,
-                         num_chunks=3, device=device, dtype=dtype, mode=mode)
+                         num_chunks=3, device=device, dtype=dtype, mode=mode,
+                         already_parametrized=already_parametrized)  # NEW
 
     def forward(self, input: Tensor, hx: Optional[Tensor] = None) -> Tensor:
         is_batched = input.dim() == 2

@@ -67,10 +67,10 @@ class BaseCustomNeuronLayer(nn.Module):
             to inner product terms, regardless of whether new weight symbols are generated.
             If False, the original logic applies: an extra coefficient 'c' is added only when
             no new weight symbol is generated during parameterization.
-            Default: True.
+            Default: False.
     """
     def __init__(self, in_features: int, out_features: int, symbolic_expression: str,
-                 bias: bool = True, already_parametrized: bool = True):
+                 bias: bool = True, already_parametrized: bool = False):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
