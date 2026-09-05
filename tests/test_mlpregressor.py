@@ -76,6 +76,3 @@ test_score2 = mlp2.score(X_test, y_test)
 
 # Perform predictions using the second trained MLP regressor on the test data
 predictions2 = mlp2.predict(X_test)
-
-print(f"Test score of MLPRegressor (legacy mode): {test_score1:.4f}")
-print(f"Test score of MLPRegressor (base mode): {test_score2:.4f}")
