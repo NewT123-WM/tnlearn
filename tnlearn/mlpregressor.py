@@ -56,12 +56,26 @@ from tnlearn.operator.inner_product import (
 class BaseCustomNeuronLayer(nn.Module):
     """
     Custom neuron layer using SymPy parameterization with InnerProduct.
+
+    Args:
+        in_features: input dimension
+        out_features: output dimension
+        symbolic_expression: string representation of the neuron's mathematical form
+        bias: whether to add a learnable bias (kept for compatibility, but biases are already handled via b_i)
+        already_parametrized: if True, the expression is assumed to already contain parameter symbols
+            (e.g., w1, c1, b1). In this case, no extra coefficient 'c' will be automatically added
+            to inner product terms, regardless of whether new weight symbols are generated.
+            If False, the original logic applies: an extra coefficient 'c' is added only when
+            no new weight symbol is generated during parameterization.
+            Default: True.
     """
-    def __init__(self, in_features: int, out_features: int, symbolic_expression: str, bias: bool = True):
+    def __init__(self, in_features: int, out_features: int, symbolic_expression: str,
+                 bias: bool = True, already_parametrized: bool = True):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.raw_expr = symbolic_expression
+        self.already_parametrized = already_parametrized
 
         # 1. Convert to InnerProduct format
         expr_str = convert_pretty_to_innerproduct(symbolic_expression)
@@ -75,8 +89,9 @@ class BaseCustomNeuronLayer(nn.Module):
         sym_expr = expand(sym_expr)
         sym_expr = simplify(sym_expr)
 
-        # 2. Parameterize
-        self.param_expr = parameterize_expression(sym_expr, include_bias=True)
+        # 2. Parameterize, passing the already_parametrized flag
+        self.param_expr = parameterize_expression(sym_expr, include_bias=True,
+                                                  already_parametrized=already_parametrized)
         self.param_expr_str = str(self.param_expr)
 
         # 3. Extract all symbols
@@ -168,6 +183,7 @@ class MLPRegressor(BaseModel1):
                  l1_reg=False,
                  l2_reg=False,
                  mode='base',
+                 already_parametrized=True,
                  ):
         r"""Construct MLPRegressor with task-based neurons.
 
@@ -193,6 +209,14 @@ class MLPRegressor(BaseModel1):
             mode (str): Which neuron layer implementation to use:
                        'base'  -> BaseCustomNeuronLayer (SymPy + InnerProduct)
                        'legacy' -> LegacyCustomNeuronLayer (from tnlearn.neurons)
+            already_parametrized (bool): Only effective when mode='base'.
+                       If True, the expression is assumed to already contain parameter symbols
+                       (e.g., w1, c1, b1). In this case, no extra coefficient 'c' will be
+                       automatically added to inner product terms, regardless of whether new
+                       weight symbols are generated during parameterization.
+                       If False, the original logic applies: an extra coefficient 'c' is added
+                       only when no new weight symbol is generated.
+                       Default: True.
         """
         super(MLPRegressor, self).__init__()
 
@@ -210,6 +234,7 @@ class MLPRegressor(BaseModel1):
         self.l1_reg = l1_reg
         self.l2_reg = l2_reg
         self.mode = mode
+        self.already_parametrized = already_parametrized
         if self.mode.lower() not in ('base', 'legacy'):
             raise ValueError("mode must be 'base' or 'legacy'")
 
@@ -272,6 +297,7 @@ class MLPRegressor(BaseModel1):
             'l1_reg': self.l1_reg,
             'l2_reg': self.l2_reg,
             'mode': self.mode,
+            'already_parametrized': self.already_parametrized,
         }
 
     def set_params(self, **params):
@@ -322,13 +348,19 @@ class MLPRegressor(BaseModel1):
         # Choose the appropriate CustomNeuronLayer class based on mode
         if self.mode.lower() == 'legacy':
             layer_class = LegacyCustomNeuronLayer
+            # Legacy mode does not support already_parametrized; ignore
         else:
             layer_class = BaseCustomNeuronLayer
 
         layers = []
         last_dim = input_dim
         for neuron_count in self.layers_list:
-            layers.append(layer_class(last_dim, neuron_count, self.neurons))
+            # Only pass already_parametrized when using base mode
+            if self.mode.lower() == 'base':
+                layers.append(layer_class(last_dim, neuron_count, self.neurons,
+                                          already_parametrized=self.already_parametrized))
+            else:
+                layers.append(layer_class(last_dim, neuron_count, self.neurons))
             last_dim = neuron_count
             layers.append(self.activation_funcs)
 

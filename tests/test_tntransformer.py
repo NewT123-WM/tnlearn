@@ -22,7 +22,8 @@ from tnlearn import (
 def compare_tensors(out1, out2, atol=1e-6):
     """Recursively compare two outputs, supporting nested tuples/lists."""
     if isinstance(out1, torch.Tensor):
-        assert torch.allclose(out1, out2, atol=atol), f"Tensor mismatch: {out1} vs {out2}"
+        # Allow NaN equality, as masked softmax may produce NaN in edge cases
+        assert torch.allclose(out1, out2, atol=atol, equal_nan=True), f"Tensor mismatch: {out1} vs {out2}"
     elif isinstance(out1, (tuple, list)):
         assert len(out1) == len(out2), f"Length mismatch: {len(out1)} vs {len(out2)}"
         for a, b in zip(out1, out2):
@@ -101,7 +102,7 @@ def test_transformer_models():
     """Test all Transformer components with TNLinear."""
     torch.manual_seed(42)
 
-    # ---------- 1. TNTransformerEncoderLayer ----------
+    # ---------- 1. TNTransformerEncoderLayer (batch_first=False) ----------
     print("Testing TNTransformerEncoderLayer (batch_first=False)...")
     encoder_layer = TNTransformerEncoderLayer(
         d_model=512, nhead=8, dim_feedforward=2048,
@@ -138,10 +139,11 @@ def test_transformer_models():
     enc_layer = TNTransformerEncoderLayer(
         d_model=512, nhead=8, dim_feedforward=2048,
         dropout=0.1, activation='relu',
-        symbolic_expression='x + 0.5 * sin(x)'
+        symbolic_expression='x + 0.5 * sin(x)',
+        batch_first=True,   # Use batch_first to enable nested tensor optimization
     )
     encoder = TNTransformerEncoder(enc_layer, num_layers=2)
-    src = torch.randn(10, 32, 512)
+    src = torch.randn(32, 10, 512)   # (batch, seq, feature)
     test_model_save_load(encoder, (src,))
 
     # ---------- 4. TNTransformerDecoder (stack) ----------
@@ -156,7 +158,7 @@ def test_transformer_models():
     memory = torch.randn(10, 32, 512)
     test_model_save_load(decoder, (tgt, memory))
 
-    # ---------- 5. Full TNTransformer ----------
+    # ---------- 5. Full TNTransformer (batch_first=True to avoid nested tensor warning) ----------
     print("Testing TNTransformer (full model)...")
     transformer = TNTransformer(
         d_model=512, nhead=8,
@@ -164,10 +166,10 @@ def test_transformer_models():
         dim_feedforward=2048, dropout=0.1,
         activation='relu',
         symbolic_expression='x + tanh(x)',
-        batch_first=False
+        batch_first=True   # Use batch_first=True to avoid warning and enable optimization
     )
-    src = torch.randn(10, 32, 512)
-    tgt = torch.randn(20, 32, 512)
+    src = torch.randn(32, 10, 512)   # (batch, seq, feature)
+    tgt = torch.randn(32, 20, 512)   # (batch, seq, feature)
     test_model_save_load(transformer, (src, tgt))
 
     # ---------- 6. Test with masks and batch_first=True ----------
@@ -183,7 +185,8 @@ def test_transformer_models():
     src_bf = torch.randn(32, 10, 512)
     tgt_bf = torch.randn(32, 20, 512)
 
-    tgt_mask = transformer_bf.generate_square_subsequent_mask(20)
+    # Convert mask to bool to avoid deprecation warning
+    tgt_mask = transformer_bf.generate_square_subsequent_mask(20).bool()
     src_key_padding_mask = torch.randint(0, 2, (32, 10)).bool()
     tgt_key_padding_mask = torch.randint(0, 2, (32, 20)).bool()
 

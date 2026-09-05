@@ -1,10 +1,39 @@
-# operator/inner_product.py
+"""
+InnerProduct operator and parameterization utilities for symbolic expressions.
+
+This module provides:
+- InnerProduct class: a symbolic representation of the inner product <a, b>.
+- Functions to convert between pretty-printed and InnerProduct forms.
+- Parameterization of expressions: replacing numeric constants and known symbols
+  with learnable parameters (w, c, b), with an option to suppress automatic
+  coefficient addition for already-parameterized expressions.
+
+Copyright (c) 2024 Meng WANG. All Rights Reserved.
+Copyright (c) 2026 Tieyun LI. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 from sympy import Expr, Add, Mul, sympify, symbols, Symbol, Number, Pow, sin, cos, exp
 import re
 import numpy as np
 import torch
 
+
 class InnerProduct(Expr):
+    """
+    Symbolic representation of an inner product <left, right>.
+    """
     def __new__(cls, left, right, **kwargs):
         left = sympify(left)
         right = sympify(right)
@@ -67,7 +96,6 @@ def _simplify_expr(expr, **kwargs):
             if e.is_Mul:
                 coeff, rest = e.as_coeff_Mul()
                 if coeff < 0:
-                    # Extract negative sign, core becomes the positive coefficient part
                     return -1, Mul(-coeff, rest)
                 else:
                     return 1, e
@@ -78,7 +106,7 @@ def _simplify_expr(expr, **kwargs):
 
         sign_left, core_left = extract_sign(left)
         sign_right, core_right = extract_sign(right)
-        total_sign = sign_left * sign_right  # 1 or -1
+        total_sign = sign_left * sign_right
 
         inner = InnerProduct(core_left, core_right)
         expanded = inner._eval_expand_basic(**kwargs)
@@ -111,6 +139,7 @@ def _simplify_expr(expr, **kwargs):
 
 
 def convert_pretty_to_innerproduct(expr_str):
+    """Convert pretty-printed <...> expressions to InnerProduct(...) function calls."""
     pattern = r'<([^<>]+)>'
     def repl(match):
         inner = match.group(1).strip()
@@ -119,15 +148,15 @@ def convert_pretty_to_innerproduct(expr_str):
         expr_str = re.sub(pattern, repl, expr_str)
     return expr_str
 
+
 def convert_innerproduct_to_pretty(expr_str: str) -> str:
     """
     Convert InnerProduct(...) and IP(...) to pretty <...> format.
-    
+
     Example:
         "InnerProduct(w, x**2) + IP(c, x)" -> "<w, x**2> + <c, x>"
     """
     expr_str = re.sub(r'\bIP\s*\(', 'InnerProduct(', expr_str)
-    # replace InnerProduct(...) with <...>，aavailable for <<*,*>,*>
     pattern = r'InnerProduct\s*\(([^()]*)\)'
     while re.search(pattern, expr_str):
         expr_str = re.sub(pattern, r'<\1>', expr_str)
@@ -135,10 +164,14 @@ def convert_innerproduct_to_pretty(expr_str: str) -> str:
 
 
 def is_inner_product(expr):
+    """Check if an expression is an InnerProduct instance."""
     return isinstance(expr, InnerProduct)
 
 
 def replace_numbers(expr, counter, in_exponent=False):
+    """
+    Replace numeric constants with new weight symbols (w_i).
+    """
     if isinstance(expr, Symbol):
         return expr
     if expr.is_Number:
@@ -165,7 +198,21 @@ def replace_numbers(expr, counter, in_exponent=False):
         return expr
 
 
-def parameterize_term(term, counter, include_bias=False):
+def parameterize_term(term, counter, include_bias=False, already_parametrized=True):
+    """
+    Parameterize a single term of an expression.
+
+    Args:
+        term: a SymPy expression (single term, not an Add)
+        counter: dict with keys 'w', 'c', 'b' to keep track of parameter indices
+        include_bias: if True, replace standalone numeric constants with b_i
+        already_parametrized: if True, do NOT add an extra coefficient 'c'
+            even if no new weight symbol is generated. This is useful when the
+            expression already contains parameter symbols (e.g., w1, c1, b1).
+            If False, the original logic applies: add 'c' only when no new
+            weight symbol is introduced.
+            Default: True.
+    """
     if term.is_number:
         if include_bias:
             b = symbols('b%d' % counter['b'])
@@ -180,9 +227,13 @@ def parameterize_term(term, counter, include_bias=False):
         new_a2 = replace_numbers(a2, counter, False)
         new_ip = InnerProduct(new_a1, new_a2)
         if counter['w'] == old_w:
-            c = symbols('c%d' % counter['c'])
-            counter['c'] += 1
-            return Mul(c, new_ip)
+            # No new weight generated; add 'c' only if not already_parametrized
+            if not already_parametrized:
+                c = symbols('c%d' % counter['c'])
+                counter['c'] += 1
+                return Mul(c, new_ip)
+            else:
+                return new_ip
         return new_ip
     if isinstance(term, Mul):
         inner_products = []
@@ -214,18 +265,32 @@ def parameterize_term(term, counter, include_bias=False):
         if not inner_products:
             return 1
         result = Mul(*inner_products) if len(inner_products) > 1 else inner_products[0]
-        if not created_param:
+        if not created_param and not already_parametrized:
+            # Only add 'c' if no new weight was generated and we are not already parameterized
             c = symbols('c%d' % counter['c'])
             counter['c'] += 1
             result = Mul(c, result)
         return result
+    # For other cases (e.g., a simple symbol or function)
     new_expr = replace_numbers(term, counter, False)
     w = symbols('w%d' % counter['w'])
     counter['w'] += 1
+    # A new weight is always generated here, so no 'c' needed regardless of already_parametrized
     return InnerProduct(w, new_expr)
 
 
-def parameterize_expression(expr, include_bias=False):
+def parameterize_expression(expr, include_bias=False, already_parametrized=True):
+    """
+    Parameterize an entire expression by replacing constants and known symbols with learnable parameters.
+
+    Args:
+        expr: a SymPy expression (possibly an Add of multiple terms)
+        include_bias: whether to replace standalone constants with b_i
+        already_parametrized: passed to parameterize_term; controls automatic addition
+            of extra coefficients 'c'. Default: True.
+    Returns:
+        A new SymPy expression with parameters.
+    """
     if isinstance(expr, Add):
         terms = list(expr.args)
     else:
@@ -233,7 +298,7 @@ def parameterize_expression(expr, include_bias=False):
     counter = {'w': 1, 'c': 1, 'b': 1}
     new_terms = []
     for t in terms:
-        pt = parameterize_term(t, counter, include_bias)
+        pt = parameterize_term(t, counter, include_bias, already_parametrized)
         if pt != 0:
             new_terms.append(pt)
     if not new_terms:
@@ -242,6 +307,11 @@ def parameterize_expression(expr, include_bias=False):
 
 
 def inner_product(a, b, N=None):
+    """
+    Compute the inner product (sum of elementwise products) for numpy or torch tensors.
+
+    Supports broadcasting and reshaping to handle batched inputs.
+    """
     is_torch = isinstance(a, torch.Tensor) or isinstance(b, torch.Tensor)
     if is_torch:
         a = torch.as_tensor(a) if not isinstance(a, torch.Tensor) else a
@@ -316,6 +386,9 @@ def inner_product(a, b, N=None):
 
 
 def eval_sympy_expr(expr, subs):
+    """
+    Evaluate a SymPy expression with torch tensors as substitutions.
+    """
     if expr.is_Number:
         device = next(iter(subs.values())).device
         return torch.tensor(float(expr), device=device)
@@ -348,6 +421,9 @@ def eval_sympy_expr(expr, subs):
 
 
 def evaluate_expression(expr, x_tensor, param_dict, out_dim):
+    """
+    Evaluate a parameterized expression for a batch of inputs and all output neurons.
+    """
     batch = x_tensor.size(0)
     results = []
     x_sym = symbols('x')
@@ -426,7 +502,6 @@ def neuronseek_config_to_string(config: dict) -> str:
         ...
         TypeError: 'pure_indices' must be a list
     """
-
     # ---- Safely retrieve and validate fields ----
     pure = config.get('pure_indices')
     if pure is None:
@@ -440,7 +515,6 @@ def neuronseek_config_to_string(config: dict) -> str:
     if not isinstance(inter, list):
         raise TypeError("'interact_indices' must be a list")
 
-    # ---- Filter valid orders (positive integers) ----
     def is_valid_order(v: any) -> bool:
         """Return True if v is a positive integer."""
         try:
@@ -451,7 +525,6 @@ def neuronseek_config_to_string(config: dict) -> str:
     pure = [k for k in pure if is_valid_order(k)]
     inter = [m for m in inter if is_valid_order(m)]
 
-    # ---- Warn about unsupported interaction_form ----
     form = config.get('interaction_form', 'cp_inner_product')
     if form != 'cp_inner_product':
         import warnings
@@ -461,11 +534,9 @@ def neuronseek_config_to_string(config: dict) -> str:
             UserWarning
         )
 
-    # ---- Build expression parts ----
     parts = []
-    w_idx = 1   # weight vector counter
+    w_idx = 1
 
-    # Polynomial stream: each order k gives <w_i, x> (if k=1) or <w_i, x**k>
     for k in pure:
         if k == 1:
             parts.append(f"<w{w_idx}, x>")
@@ -473,7 +544,6 @@ def neuronseek_config_to_string(config: dict) -> str:
             parts.append(f"<w{w_idx}, x**{k}>")
         w_idx += 1
 
-    # Interaction stream: each order m gives product of m linear inner products
     for m in inter:
         factors = []
         for _ in range(m):
@@ -481,7 +551,6 @@ def neuronseek_config_to_string(config: dict) -> str:
             w_idx += 1
         parts.append("*".join(factors))
 
-    # Periodic stream: if enabled, add <w_i, sin(x)>
     if config.get('periodic', False):
         parts.append(f"<w{w_idx}, sin(x)>")
         w_idx += 1
@@ -489,4 +558,5 @@ def neuronseek_config_to_string(config: dict) -> str:
     return "+".join(parts)
 
 
+# Alias for convenience
 IP = InnerProduct
