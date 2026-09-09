@@ -22,7 +22,7 @@ from tnlearn.mlpclassifier import MLPClassifier
 from tnlearn.preprocessing import DataPreprocessor
 from tnlearn.base import BaseModel
 from tnlearn.base1 import BaseModel1
-from tnlearn.poly_regressor import PolyTensorRegression
+from tnlearn.poly_regressor import PolyTensorRegression, PolyTensorRegressor
 
 from tnlearn.drsr import LLMSymRegressor
 from tnlearn.rl_regressor import RLRegressor, RLSymRegressor
@@ -39,6 +39,7 @@ __all__ = [
     'BaseModel',
     'BaseModel1',
     'PolyTensorRegression', # about to be deprecated
+    'PolyTensorRegressor',
     'LLMSymRegressor',           
     'RLRegressor', # legacy
     'RLSymRegressor',                   

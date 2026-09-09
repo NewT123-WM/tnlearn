@@ -1,25 +1,26 @@
-from Poly_tensor_regressor import PolynomialTensorRegression
-import numpy as np
+"""Search a NeuronSeek structure and pass its expression to the base MLP."""
 
-decomp_rank = 3  # Decomposition rank
-poly_order = 3  # Polynomial order
-net_dims = (64, 32)  # Network layer dimensions
-reg_lambda = 0.01  # Regularization strength
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-np.random.seed(42)
+from tnlearn import MLPRegressor, PolyTensorRegressor
+from tnlearn.operator.inner_product import neuronseek_config_to_string
 
-X = np.random.rand(100, 3, 2)
-X = (X - np.mean(X, axis=0)) / np.std(X, axis=0)
-y = np.random.rand(100)
-reg_lambda_w = 0.1
-reg_lambda_c = 0.1
-losses = []
 
-neuron = PolynomialTensorRegression(decomp_rank, 
-                                    poly_order, 
-                                    method='cp', 
-                                    reg_lambda_w=0.01, 
-                                    reg_lambda_c=0.01) 
+if __name__ == '__main__':
+    X, y = make_regression(n_samples=100, n_features=10, noise=0.1, random_state=1)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
+    scaler = StandardScaler().fit(X_train)
+    X_train, X_test = scaler.transform(X_train), scaler.transform(X_test)
 
-neuron.fit(X,y)
-print(neuron.neuron)
+    search = PolyTensorRegressor(rank=3, poly_order=3, num_epochs=30, random_state=1)
+    search.fit(X_train, y_train)
+    neuron = neuronseek_config_to_string(search.structure_) or '0'
+    assert neuron == search.neuron
+    print('Structure:', search.structure_)
+    print('Neuron:', neuron)
+
+    mlp = MLPRegressor(neuron, layers_list=[10], max_iter=100)
+    mlp.fit(X_train, y_train)
+    print('Test R2:', mlp.score(X_test, y_test))

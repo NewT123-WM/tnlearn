@@ -145,30 +145,52 @@ clf.fit(X_train, y_train)
 clf.predict(X_test)
 ```
 
-Another quick example to show you how to use polynomial tensor regressor to build neurons:
+Use NeuronSeek to search pure polynomial and CP interaction orders, then build
+an MLP from the exported inner-product expression:
 
 ```python
-from tnlearn import PolyTensorRegression
+from tnlearn import PolyTensorRegressor
 from tnlearn import MLPRegressor
+from tnlearn.operator.inner_product import neuronseek_config_to_string
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
 # Generate data.
-X, y = make_regression(n_samples=200, random_state=1)
+X, y = make_regression(n_samples=200, n_features=10, random_state=1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
 
-# A polynomial tensor regressor is used to generate task-based neurons.
-neuron = PolyTensorRegression()
+# Search the structure; the MLP will learn its own weights.
+neuron = PolyTensorRegressor(rank=3, poly_order=3, random_state=1)
 neuron.fit(X_train, y_train)
+print(neuron.structure_)
+print(neuron.neuron)
+assert neuron.neuron == (neuronseek_config_to_string(neuron.structure_) or '0')
 
-# Build neural network using task-based neurons and train it.
-clf = MLPRegressor(neurons=neuron.neuron，
-                   layers_list=[50,30,10]) #Specify the structure of the hidden layers in the MLP.
+# The default base mode understands inner products.
+clf = MLPRegressor(neurons=neuron.neuron, layers_list=[50, 30, 10])
 clf.fit(X_train, y_train)
 
 # Predict
 clf.predict(X_test)
 ```
+
+`pure_indices` and `interact_indices` are polynomial **orders**, not feature
+indices. A pure order 2 exports `<w1, x**2>`, while an interaction order 2
+exports `<w1, x>*<w2, x>`. Each interaction order exports a sum of `rank`
+independent CP components; omitting `rank` in a manual configuration defaults
+to 1. Fitted search weights, gates and batch-normalization parameters are not
+transferred to the MLP. If all gates are pruned, the searcher exports `'0'`,
+which produces bias-only custom layers.
+
+All export paths, including `track_callback` and `get_significant_polynomial()`,
+use `neuronseek_config_to_string`. Manual configurations may also include
+`periodic=True` to add `<w, sin(x)>`; this searcher selects polynomial orders
+only. `PolyTensorRegressor` supports CP search; the existing
+`PolyTensorRegression` remains the separate legacy CP/Tucker implementation.
+
+After installing pytest, run the focused regression checks with
+`python -m pytest tests/test_neuronseek.py`. The four manual configurations are
+also available in `examples/example_neuronseek_configs.py`.
 
 ## DrSR: LLM-based Symbolic Regression
 

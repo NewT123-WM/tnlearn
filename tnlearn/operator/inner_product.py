@@ -302,7 +302,7 @@ def parameterize_expression(expr, include_bias=False, already_parametrized=True)
         if pt != 0:
             new_terms.append(pt)
     if not new_terms:
-        return 0
+        return sympify(0)
     return Add(*new_terms) if len(new_terms) > 1 else new_terms[0]
 
 
@@ -440,8 +440,12 @@ def evaluate_expression(expr, x_tensor, param_dict, out_dim):
             else:
                 subs[sym_obj] = param
         val = eval_sympy_expr(expr, subs)
-        if val.dim() == 1:
+        if val.dim() == 0:
+            val = val.reshape(1, 1)
+        elif val.dim() == 1:
             val = val.unsqueeze(-1)
+        if val.size(0) == 1:
+            val = val.expand(batch, -1)
         results.append(val)
     return torch.cat(results, dim=1)
 
@@ -453,12 +457,13 @@ def neuronseek_config_to_string(config: dict) -> str:
     The expression consists of a polynomial stream, an interaction stream, and an optional periodic stream.
     Pure terms are represented as <w_i, x> for k=1 and <w_i, x**k> for k>1.
     Interaction terms are represented as products of linear inner products <w_j, x>
-    for each interaction order m in `interact_indices`, using a rank-1 CP decomposition.
+    for each interaction order m in `interact_indices`, summed over `rank`
+    independent CP components (default: 1).
     If `periodic` is True, a term <w_i, sin(x)> is appended.
 
     This function performs input validation and gracefully handles missing fields,
-    invalid data types, and non-positive orders. The `rank` parameter is currently
-    ignored, as only rank-1 decompositions are used for interaction terms.
+    invalid data types, and non-positive orders. Each CP component uses distinct
+    weight symbols so downstream parameterization preserves the requested rank.
 
     Args:
         config (dict): A dictionary containing the following optional keys:
@@ -471,7 +476,7 @@ def neuronseek_config_to_string(config: dict) -> str:
                 is fully supported; other values trigger a warning but still
                 generate an expression using inner products. Defaults to
                 'cp_inner_product'.
-            - rank (int): CP rank; currently ignored.
+            - rank (int): Positive CP rank. Defaults to 1.
             - periodic (bool): If True, includes a periodic term <w_i, sin(x)>.
                 Defaults to False.
 
@@ -481,21 +486,22 @@ def neuronseek_config_to_string(config: dict) -> str:
 
     Raises:
         TypeError: If `pure_indices` or `interact_indices` is present but not a list.
+        ValueError: If `rank` is not a positive integer.
 
     Examples:
         >>> config = {'pure_indices': [1, 2], 'interact_indices': [2, 3]}
         >>> neuronseek_config_to_string(config)
-        '<w1,x>+<w2,x**2>+<w3,x>*<w4,x>+<w5,x>*<w6,x>*<w7,x>'
+        '<w1, x>+<w2, x**2>+<w3, x>*<w4, x>+<w5, x>*<w6, x>*<w7, x>'
 
         >>> config = {'pure_indices': [1], 'interact_indices': [2], 'periodic': True}
         >>> neuronseek_config_to_string(config)
-        '<w1,x>+<w2,x>*<w3,x>+<w4,sin(x)>'
+        '<w1, x>+<w2, x>*<w3, x>+<w4, sin(x)>'
 
         >>> neuronseek_config_to_string({})
         ''
 
         >>> neuronseek_config_to_string({'pure_indices': [0, -1, 2]})
-        '<w1,x**2>'
+        '<w1, x**2>'
 
         >>> neuronseek_config_to_string({'pure_indices': 'not a list'})
         Traceback (most recent call last):
@@ -503,6 +509,10 @@ def neuronseek_config_to_string(config: dict) -> str:
         TypeError: 'pure_indices' must be a list
     """
     # ---- Safely retrieve and validate fields ----
+    rank = config.get('rank', 1)
+    if isinstance(rank, bool) or not isinstance(rank, int) or rank < 1:
+        raise ValueError("'rank' must be a positive integer")
+
     pure = config.get('pure_indices')
     if pure is None:
         pure = []
@@ -518,7 +528,7 @@ def neuronseek_config_to_string(config: dict) -> str:
     def is_valid_order(v: any) -> bool:
         """Return True if v is a positive integer."""
         try:
-            return isinstance(v, int) and v > 0
+            return isinstance(v, int) and not isinstance(v, bool) and v > 0
         except Exception:
             return False
 
@@ -530,7 +540,7 @@ def neuronseek_config_to_string(config: dict) -> str:
         import warnings
         warnings.warn(
             f"interaction_form '{form}' is not fully supported; "
-            "using cp_inner_product representation (rank 1).",
+            f"using cp_inner_product representation (rank {rank}).",
             UserWarning
         )
 
@@ -544,12 +554,14 @@ def neuronseek_config_to_string(config: dict) -> str:
             parts.append(f"<w{w_idx}, x**{k}>")
         w_idx += 1
 
+    # A rank-R order-m CP term is a sum of R products of m inner products.
     for m in inter:
-        factors = []
-        for _ in range(m):
-            factors.append(f"<w{w_idx}, x>")
-            w_idx += 1
-        parts.append("*".join(factors))
+        for _ in range(rank):
+            factors = []
+            for _ in range(m):
+                factors.append(f"<w{w_idx}, x>")
+                w_idx += 1
+            parts.append("*".join(factors))
 
     if config.get('periodic', False):
         parts.append(f"<w{w_idx}, sin(x)>")
@@ -558,5 +570,4 @@ def neuronseek_config_to_string(config: dict) -> str:
     return "+".join(parts)
 
 
-# Alias for convenience
 IP = InnerProduct
