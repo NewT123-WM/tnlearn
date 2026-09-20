@@ -391,10 +391,11 @@ class TNRNN(_TNRNNBase):
                  mode: str = 'base',
                  already_parametrized: bool = False):  # NEW
         self.nonlinearity = nonlinearity
-        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp, ap):  # added ap
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp,
+                         already_parametrized=False):
             return TNRNNCell(in_size, h_size, bias=b, nonlinearity=nonlinearity,
                              symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode,
-                             already_parametrized=ap)  # pass ap
+                             already_parametrized=already_parametrized)
         super().__init__(cell_factory, mode, 'RNN', input_size, hidden_size, num_layers,
                          bias, batch_first, dropout, bidirectional,
                          symbolic_expression, device, dtype,
@@ -408,10 +409,11 @@ class TNLSTM(_TNRNNBase):
                  symbolic_expression: str = 'x', device=None, dtype=None,
                  mode: str = 'base',
                  already_parametrized: bool = False):  # NEW
-        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp, ap):  # added ap
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp,
+                         already_parametrized=False):
             return TNLSTMCell(in_size, h_size, bias=b,
                               symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode,
-                              already_parametrized=ap)  # pass ap
+                              already_parametrized=already_parametrized)
         super().__init__(cell_factory, mode, 'LSTM', input_size, hidden_size, num_layers,
                          bias, batch_first, dropout, bidirectional,
                          symbolic_expression, device, dtype,
@@ -425,10 +427,11 @@ class TNGRU(_TNRNNBase):
                  symbolic_expression: str = 'x', device=None, dtype=None,
                  mode: str = 'base',
                  already_parametrized: bool = False):  # NEW
-        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp, ap):  # added ap
+        def cell_factory(in_size, h_size, b, sym_expr, dev, dtyp,
+                         already_parametrized=False):
             return TNGRUCell(in_size, h_size, bias=b,
                              symbolic_expression=sym_expr, device=dev, dtype=dtyp, mode=mode,
-                             already_parametrized=ap)  # pass ap
+                             already_parametrized=already_parametrized)
         super().__init__(cell_factory, mode, 'GRU', input_size, hidden_size, num_layers,
                          bias, batch_first, dropout, bidirectional,
                          symbolic_expression, device, dtype,

@@ -3,9 +3,9 @@ from tnlearn import GPSymRegressor
 import numpy as np
 
 neuron = GPSymRegressor(random_state=100,
-                         pop_size=500,
-                         max_generations=20,
-                         tournament_size=10,
+                         pop_size=50,
+                         max_generations=3,
+                         tournament_size=5,
                          coefficient_range=[-1, 1],
                          x_pct=0.7,
                          xover_pct=0.3,

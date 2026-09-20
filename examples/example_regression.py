@@ -8,7 +8,7 @@ from tnlearn import MLPRegressor
 
 random_seed(100)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+gpu = 0 if torch.cuda.is_available() else None
 
 group = 'no1'
 
@@ -42,7 +42,7 @@ clf = MLPRegressor(
     visual_interval=10,
     save=True,
     interval=10,
-    gpu=None,
+    gpu=gpu,
     # scheduler={'step_size': 30,
     #            'gamma': 0.2},
     l1_reg=False,

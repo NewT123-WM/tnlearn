@@ -33,7 +33,7 @@ def compare_tensors(out1, out2, atol=1e-6):
 
 
 # ---------- Save/load test using torch.save/load ----------
-def test_model_save_load(model, args, kwargs=None):
+def check_model_save_load(model, args, kwargs=None):
     """
     Generic save-load test using torch.save/load (requires model picklable).
     """
@@ -110,7 +110,7 @@ def test_transformer_models():
         symbolic_expression='x + sin(x)'
     )
     src = torch.randn(10, 32, 512)   # (seq, batch, feature)
-    test_model_save_load(encoder_layer, (src,))
+    check_model_save_load(encoder_layer, (src,))
 
     # batch_first=True
     print("Testing TNTransformerEncoderLayer (batch_first=True)...")
@@ -121,7 +121,7 @@ def test_transformer_models():
         symbolic_expression='x**2 + cos(x)'
     )
     src_bf = torch.randn(32, 10, 512)  # (batch, seq, feature)
-    test_model_save_load(encoder_layer_bf, (src_bf,))
+    check_model_save_load(encoder_layer_bf, (src_bf,))
 
     # ---------- 2. TNTransformerDecoderLayer ----------
     print("Testing TNTransformerDecoderLayer...")
@@ -132,7 +132,7 @@ def test_transformer_models():
     )
     tgt = torch.randn(20, 32, 512)
     memory = torch.randn(10, 32, 512)
-    test_model_save_load(decoder_layer, (tgt, memory))
+    check_model_save_load(decoder_layer, (tgt, memory))
 
     # ---------- 3. TNTransformerEncoder (stack) ----------
     print("Testing TNTransformerEncoder...")
@@ -144,7 +144,7 @@ def test_transformer_models():
     )
     encoder = TNTransformerEncoder(enc_layer, num_layers=2)
     src = torch.randn(32, 10, 512)   # (batch, seq, feature)
-    test_model_save_load(encoder, (src,))
+    check_model_save_load(encoder, (src,))
 
     # ---------- 4. TNTransformerDecoder (stack) ----------
     print("Testing TNTransformerDecoder...")
@@ -156,7 +156,7 @@ def test_transformer_models():
     decoder = TNTransformerDecoder(dec_layer, num_layers=2)
     tgt = torch.randn(20, 32, 512)
     memory = torch.randn(10, 32, 512)
-    test_model_save_load(decoder, (tgt, memory))
+    check_model_save_load(decoder, (tgt, memory))
 
     # ---------- 5. Full TNTransformer (batch_first=True to avoid nested tensor warning) ----------
     print("Testing TNTransformer (full model)...")
@@ -170,7 +170,7 @@ def test_transformer_models():
     )
     src = torch.randn(32, 10, 512)   # (batch, seq, feature)
     tgt = torch.randn(32, 20, 512)   # (batch, seq, feature)
-    test_model_save_load(transformer, (src, tgt))
+    check_model_save_load(transformer, (src, tgt))
 
     # ---------- 6. Test with masks and batch_first=True ----------
     print("Testing TNTransformer with masks and batch_first=True...")
@@ -190,7 +190,7 @@ def test_transformer_models():
     src_key_padding_mask = torch.randint(0, 2, (32, 10)).bool()
     tgt_key_padding_mask = torch.randint(0, 2, (32, 20)).bool()
 
-    test_model_save_load(
+    check_model_save_load(
         transformer_bf,
         (src_bf, tgt_bf),
         kwargs={

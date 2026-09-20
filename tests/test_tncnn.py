@@ -8,7 +8,7 @@ from tnlearn import (
 )
 
 # ---------- Test functions ----------
-def test_save_load(model, input_tensor):
+def check_save_load(model, input_tensor):
     """Perform one training step on the model, save and reload it, then verify outputs and parameters."""
     model.train()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
@@ -161,5 +161,5 @@ inputs.append(x_ct3)
 # ---------- Run save/load tests ----------
 print("\n--- Running save/load tests ---")
 for model, inp in zip(models, inputs):
-    test_save_load(model, inp)
+    check_save_load(model, inp)
 print("All tests passed! ✅")

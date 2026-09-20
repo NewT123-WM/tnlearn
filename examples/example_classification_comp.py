@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 
 random_seed(100)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 scaler = MinMaxScaler(feature_range=(-1, 1))
 
 max_epoch = 1000

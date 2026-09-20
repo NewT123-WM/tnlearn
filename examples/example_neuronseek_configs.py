@@ -1,6 +1,7 @@
 """Fit the four manual configurations using MLPRegressor's default settings."""
 
 import numpy as np
+import torch
 from sklearn.datasets import make_regression
 
 from tnlearn import MLPRegressor
@@ -8,6 +9,8 @@ from tnlearn.operator.inner_product import neuronseek_config_to_string
 
 
 if __name__ == '__main__':
+    gpu = 0 if torch.cuda.is_available() else None
+
     X, y = make_regression(n_samples=100, n_features=10, noise=0.1, random_state=1)
     configs = [
         dict(type='neuronseek', pure_indices=[1, 2], interact_indices=[2, 3],
@@ -19,7 +22,7 @@ if __name__ == '__main__':
     for index, config in enumerate(configs, 1):
         neuron = neuronseek_config_to_string(config)
         print(f'Neuron {index}: {neuron}', flush=True)
-        mlp = MLPRegressor(neuron)
+        mlp = MLPRegressor(neuron, gpu=gpu)
         mlp.fit(X, y)
         predictions = mlp.predict(X)
         assert predictions.shape == (100,)

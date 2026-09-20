@@ -4,6 +4,7 @@ Data: y = 3 * x^2 + 2 * x + noise
 """
 
 import numpy as np
+import torch
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
 from tnlearn import LLMSymRegressor
@@ -13,6 +14,7 @@ from tnlearn.mlpregressor import MLPRegressor
 # 1. Generate synthetic data (univariate, polynomial with noise)
 # ============================================================================
 np.random.seed(42)
+gpu = 0 if torch.cuda.is_available() else None
 n_samples = 300
 X = np.random.uniform(-3, 3, n_samples).reshape(-1, 1)
 y = 3.0 * X[:, 0]**2 + 2.0 * X[:, 0] + 0.2 * np.random.randn(n_samples)
@@ -57,7 +59,8 @@ mlp_custom = MLPRegressor(
     max_iter=300,
     batch_size=64,
     lr=0.001,
-    mode = 'base'
+    mode = 'base',
+    gpu=gpu
 )
 print("\nTraining MLP with the discovered neuron...")
 mlp_custom.fit(X_train, y_train)
