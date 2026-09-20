@@ -7,7 +7,7 @@ import torch
 from sklearn.datasets import make_regression
 
 import tnlearn
-from tnlearn import MLPRegressor, PolyTensorRegression, PolyTensorRegressor
+from tnlearn import LLMSymRegressor, MLPRegressor, PolyTensorRegression, PolyTensorRegressor
 from tnlearn.mlpregressor import BaseCustomNeuronLayer
 from tnlearn.operator.inner_product import (
     InnerProduct,
@@ -41,6 +41,15 @@ def test_existing_package_exports_remain_available():
                  'PolyTensorRegression', 'PolyTensorRegressor'):
         assert name in tnlearn.__all__
         assert hasattr(tnlearn, name)
+
+
+def test_llm_base_neuron_preserves_inner_product_multiplication():
+    reg = LLMSymRegressor(llm_config={'model': 'deepseek/deepseek-chat'}, mode='base')
+    reg.best_equation_ = 'return IP(params[0], x) + IP(params[1], x) * IP(params[2], x)'
+    reg.best_params_ = np.array([2.004454, 1.579429, 1.899564])
+    neuron = reg.get_neuron_formula()
+    assert neuron == '<2.004454, x> + <1.579429, x> * <1.899564, x>'
+    MLPRegressor(neuron, layers_list=[2], max_iter=1, mode='base')
 
 
 @pytest.mark.parametrize('config', CONFIGS)
@@ -205,3 +214,7 @@ def test_singleton_and_misaligned_training_data_are_rejected():
         reg.fit(np.ones((1, 2)), np.ones(1))
     with pytest.raises(ValueError, match='same sample count'):
         reg.fit(np.ones((3, 2)), np.ones(2))
+
+
+if __name__ == '__main__':
+    raise SystemExit(pytest.main([__file__]))

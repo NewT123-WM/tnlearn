@@ -1,14 +1,14 @@
-import torch
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn import datasets
 import pandas as pd
 import numpy as np
+import torch
 from tnlearn import MLPClassifier
 from tnlearn.seeds import random_seed
 
 random_seed(100)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+gpu = 0 if torch.cuda.is_available() else None
 scaler = MinMaxScaler(feature_range=(-1, 1))
 
 sr = '-0.074@x**4 + 0.068235@x**3 + 0.07168875@x**2 + 0.0015433@x'
@@ -36,7 +36,7 @@ clf = MLPClassifier(
     visual_interval=10,
     save=True,
     fig_path='./',
-    gpu=None,
+    gpu=gpu,
     interval=10,
     # scheduler={'step_size': 30,
     #            'gamma': 0.2},

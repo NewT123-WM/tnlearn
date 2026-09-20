@@ -329,13 +329,11 @@ def evaluate_run(data):
             for i, val in enumerate(self.best_params_):
                 expr = re.sub(rf'params\s*\[\s*{i}\s*\]', f'{val:.6f}', expr)
         expr = expr.replace('np.', 'torch.')
-        # In base mode we have IP; in legacy we might have * which should become @
-        # But we'll apply general conversion:
-        expr = re.sub(r'(?<!\*)\*(?!\*)', '@', expr)
-        expr = re.sub(r'(torch\.exp\s*\()([^)]*)\)',
-                      lambda m: m.group(1) + re.sub(r'@', '*', m.group(2)) + ')', expr)
-        expr = re.sub(r'x\s*@\s*([\d.]+)', r'\1@x', expr)
         if self.mode == 'base':
             return convert_innerproduct_to_pretty(expr)
         else:
+            expr = re.sub(r'(?<!\*)\*(?!\*)', '@', expr)
+            expr = re.sub(r'(torch\.exp\s*\()([^)]*)\)',
+                          lambda m: m.group(1) + re.sub(r'@', '*', m.group(2)) + ')', expr)
+            expr = re.sub(r'x\s*@\s*([\d.]+)', r'\1@x', expr)
             return expr

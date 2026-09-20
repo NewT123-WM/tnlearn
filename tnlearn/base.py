@@ -36,6 +36,22 @@ class BaseModel:
         # Update visualization with the current epoch, loss, and accuracy
         self.visualization_classification.update(self.current_epoch, loss, accuracy)
 
+    def plot_progress(self, loss, savefig=False, accuracy=None, path='./'):
+        r"""Backward-compatible classification training progress plotter.
+
+        Args:
+            loss: Training loss.
+            savefig: Whether to save the figure.
+            accuracy: Training accuracy.
+            path: Path to save the figure when ``savefig`` is True.
+        """
+        if accuracy is None:
+            accuracy = [0.0] * len(loss)
+        epoch = getattr(self, 'current_epoch', len(loss))
+        self.visualization_classification.update(epoch, loss, accuracy)
+        if savefig:
+            self.classification_savefigure(loss, accuracy, path)
+
     def classification_savefigure(self, loss, accuracy, path):
         r"""Method to save the training process figure.
 

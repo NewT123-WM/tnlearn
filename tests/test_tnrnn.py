@@ -19,7 +19,7 @@ def compare_tensors(out1, out2, atol=1e-6):
         raise TypeError(f"Unsupported type: {type(out1)}")
 
 
-def test_save_load(model, input_args, hx_args=None, is_cell=False):
+def check_save_load(model, input_args, hx_args=None, is_cell=False):
     """
     Test model saving and loading.
 
@@ -115,26 +115,26 @@ def test_rnn_models():
     model = TNRNN(input_size=10, hidden_size=20, num_layers=2, batch_first=True,
                   symbolic_expression='x + 0.5*sin(x)')
     x = torch.randn(3, 5, 10)  # (batch, seq, feature)
-    test_save_load(model, x)
+    check_save_load(model, x)
 
     # 2. TNLSTM
     model = TNLSTM(input_size=10, hidden_size=20, num_layers=2, bidirectional=True,
                    symbolic_expression='x**2 + cos(x)')
     x = torch.randn(3, 5, 10)
-    test_save_load(model, x)
+    check_save_load(model, x)
 
     # 3. TNGRU
     model = TNGRU(input_size=10, hidden_size=20, num_layers=2, batch_first=False,
                   symbolic_expression='x')
     x = torch.randn(5, 3, 10)  # (seq, batch, feature)
-    test_save_load(model, x)
+    check_save_load(model, x)
 
     # 4. TNRNNCell
     cell = TNRNNCell(input_size=10, hidden_size=20, nonlinearity='relu',
                      symbolic_expression='x + sin(x)')
     x_t = torch.randn(3, 10)
     h = torch.randn(3, 20)
-    test_save_load(cell, x_t, hx_args=h, is_cell=True)
+    check_save_load(cell, x_t, hx_args=h, is_cell=True)
 
     # 5. TNLSTMCell
     cell = TNLSTMCell(input_size=10, hidden_size=20,
@@ -142,14 +142,14 @@ def test_rnn_models():
     x_t = torch.randn(3, 10)
     h = torch.randn(3, 20)
     c = torch.randn(3, 20)
-    test_save_load(cell, x_t, hx_args=(h, c), is_cell=True)
+    check_save_load(cell, x_t, hx_args=(h, c), is_cell=True)
 
     # 6. TNGRUCell
     cell = TNGRUCell(input_size=10, hidden_size=20,
                      symbolic_expression='x + 0.1*exp(x)*x**2')
     x_t = torch.randn(3, 10)
     h = torch.randn(3, 20)
-    test_save_load(cell, x_t, hx_args=h, is_cell=True)
+    check_save_load(cell, x_t, hx_args=h, is_cell=True)
 
     print("All tests passed! ✅")
 

@@ -11,17 +11,19 @@ Tnlearn is an open source python library. It is based on the symbolic regression
 
 - [Quick links](#quick-links)
 - [Motivation](#motivation)
+- [Framework](#framework)
 - [Features](#features)
-- [Overview](#overview)
-- [Benchmarks](#benchmarks)
-- [Resource](#resource)
-- [Dependences](#dependences)
+- [Dependencies](#dependencies)
 - [Install](#install)
 - [Quick start](#quick-start)
-  - [DrSR: LLM-based Symbolic Regression](#drsr-llm-based-symbolic-regression)
-    - [Quick Start](#quick-start-1)
-    - [Supported LLM Providers](#supported-llm-providers)
+  - [GPSymRegressor](#gpsymregressor)
+  - [PolyTensorRegressor](#polytensorregressor)
+  - [RLSymRegressor](#rlsymregressor)
+  - [LLMSymRegressor](#llmsymregressor)
+  - [Supported LLM Providers](#supported-llm-providers)
 - [API documentation](#api-documentation)
+- [Benchmarks](#benchmarks)
+- [Resource](#resource)
 - [Citation](#citation)
 - [The Team](#the-team)
 - [License](#license)
@@ -34,15 +36,174 @@ Tnlearn is an open source python library. It is based on the symbolic regression
 
 * **Enhanced Representation** Since there are no universally applicable neurons, task-based neurons could enhance feature representation ability within the same structure, due to the intrinsic inductive bias for the task.
 
+# Framework
+
+<div align="center">
+  <img src="assets/framework.drawio.svg" alt="Tnlearn framework" width="100%" />
+</div>
+
 # Features
 
 * Vectorized symbolic regression is employed to find optimal formulas that fit input data.
 
 * We parameterize the obtained elementary formula to create learnable parameters, serving as the neuron's aggregation function.
 
-# Overview
+# Dependencies
 
-A nice picture describing the structure of tnlearn will be produced here.
+Tnlearn declares `torch>=1.12.0` and installs required Python dependencies
+automatically. For GPU usage, install a PyTorch build that matches your hardware
+from the [official PyTorch selector](https://pytorch.org/get-started/locally/)
+before installing tnlearn.
+
+# Install
+
+From PyPI:
+
+```shell
+pip install tnlearn
+```
+
+From source:
+
+```shell
+git clone https://github.com/NewT123-WM/tnlearn.git
+cd tnlearn
+pip install -e .
+```
+
+If PyTorch is already installed with the correct CPU/GPU build,
+`pip install -e .` will use it as long as it satisfies `torch>=1.12.0`.
+
+# Quick start
+
+Choose one symbolic regressor, search a task-based neuron expression, then pass
+that expression to `MLPRegressor`. For local experiments, start with
+`GPSymRegressor` or `PolyTensorRegressor`; use `LLMSymRegressor` when an LLM API
+key is available.
+
+## GPSymRegressor
+
+```python
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+from tnlearn import GPSymRegressor, MLPRegressor
+
+X, y = make_regression(n_samples=80, n_features=4, random_state=1)
+X_train, X_test, y_train, _ = train_test_split(X, y, random_state=1)
+
+search = GPSymRegressor(
+    mode='legacy',
+    pop_size=40,
+    max_generations=2,
+    tournament_size=3,
+)
+search.fit(X_train, y_train)
+
+model = MLPRegressor(search.neuron, layers_list=[8], max_iter=20, mode='legacy')
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+```
+
+`GPSymRegressor(mode='legacy')` exports the legacy `@` expression format, so
+the MLP also uses `mode='legacy'`.
+
+`VecSymRegressor` is the historical class name for this legacy GP path. In
+other symbolic regressors, `mode='legacy'` has the same compatibility meaning:
+it selects the older simplified vectorized expression format without
+inner-product interaction terms. The default/base modes below export
+inner-product expressions for the current MLP API.
+
+## PolyTensorRegressor
+
+```python
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+from tnlearn import MLPRegressor, PolyTensorRegressor
+
+X, y = make_regression(n_samples=80, n_features=6, random_state=1)
+X_train, X_test, y_train, _ = train_test_split(X, y, random_state=1)
+
+search = PolyTensorRegressor(rank=2, poly_order=2, num_epochs=10, random_state=1)
+search.fit(X_train, y_train)
+
+model = MLPRegressor(search.neuron, layers_list=[8], max_iter=20)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+```
+
+## RLSymRegressor
+
+```python
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+from tnlearn import MLPRegressor, RLSymRegressor
+
+X, y = make_regression(n_samples=80, n_features=4, random_state=1)
+X_train, X_test, y_train, _ = train_test_split(X, y, random_state=1)
+
+search = RLSymRegressor(
+    max_episodes=10,
+    max_terms_total=3,
+    random_state=1,
+    verbose=False,
+)
+search.fit(X_train, y_train)
+
+model = MLPRegressor(search.neuron, layers_list=[8], max_iter=20)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+```
+
+## LLMSymRegressor
+
+Set `DEEPSEEK_API_KEY` before running this example.
+
+```python
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+from tnlearn import LLMSymRegressor, MLPRegressor
+
+X, y = make_regression(n_samples=80, n_features=4, random_state=1)
+X_train, X_test, y_train, _ = train_test_split(X, y, random_state=1)
+
+search = LLMSymRegressor(
+    llm_config={'model': 'deepseek/deepseek-chat'},
+    max_iterations=1,
+    samples_per_iteration=1,
+    verbose=0,
+    mode='base',
+)
+search.fit(X_train, y_train)
+
+model = MLPRegressor(search.neuron, layers_list=[8], max_iter=20)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+```
+
+`PolyTensorRegressor`, `RLSymRegressor`, and `LLMSymRegressor` export
+inner-product expressions such as `<w1, x**2> + <w2, x>*<w3, x>`, which the
+default MLP mode understands directly.
+
+## Supported LLM Providers
+
+| Provider | Environment Variable | Example `model` |
+|----------|---------------------|-----------------|
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek/deepseek-chat` |
+| SiliconFlow | `SILICONFLOW_API_KEY` | `siliconflow/Qwen/Qwen3-8B` |
+| Ollama (local) | – | `ollama/llama3.1:8b` |
+| BLT | `BLT_API_KEY` | `blt/gpt-4` |
+| CSTCloud | `CSTCLOUD_API_KEY` | `cstcloud/gpt-oss-120b` |
+
+# API documentation
+
+For complete module references, class parameters, and advanced usage:
+
+<a href="https://tnlearn-documentation.readthedocs.io/en/latest/index.html">
+  <img
+    src="https://img.shields.io/badge/Open%20API%20Documentation-Read%20the%20Docs-blue?style=for-the-badge&logo=readthedocs"
+    alt="Open API Documentation"
+  />
+</a>
 
 # Benchmarks
 
@@ -81,160 +242,6 @@ Here is a resource summary for neuronal diversity in artificial networks.
 | [Dr. Fenglei Fan’s GitHub Page](https://github.com/FengleiFan) |                             Code                             | Dr. Fenglei Fan’s GitHub Page summarizes a series of papers and associated code on quadratic networks, including quadratic autoencoder and the training algorithm ReLinear. |
 | [Polynomial Network](https://github.com/grigorisg9gr/polynomial_nets) |                             Code                             | This repertoire shows how to build a deep polynomial network and sparsify it with tensor decomposition. |
 |     [Dendrite](http://www.dendrites.org/dendrites-book)      |                             Book                             | A comprehensive book covering all aspects of dendritic computation. |
-
-# Dependences
-
-You should ensure that the version of pytorch corresponds to the version of cuda so that gpu acceleration can be guaranteed. Here is a reference version
-
-`Pytorch >= 2.1.0`
-
-`cuda >= 12.1`
-
-Other major dependencies are automatically installed when installing tnlearn.
-
-# Install
-
-Tnlearn and its dependencies can be easily installed with pip:
-
-```shell
-pip install tnlearn
-```
-
-Tnlearn and its dependencies can be easily installed locally:
-
-1. download the package
-2. create a new virtual environment
-3. enter the same-level directory of `setup.py`
-4. Execute:
-
-```shell
-pip install -e .
-```
-
-or
-
-```shell
-pip install -e . --no-deps
-pip install -r requirements.txt
-```
-
-# Quick start
-
-This is a quick example to show you how to use tnlearn in regression tasks. Note that your data types should be tabular data.
-
-```python
-from tnlearn import VecSymRegressor
-from tnlearn import MLPRegressor
-from sklearn.datasets import make_regression
-from sklearn.model_selection import train_test_split
-
-# Generate data.
-X, y = make_regression(n_samples=200, random_state=1)
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
-
-# A vectorized symbolic regression algorithm is used to generate task-based neurons.
-neuron = VecSymRegressor()
-neuron.fit(X_train, y_train)
-
-# Build neural network using task-based neurons and train it.
-clf = MLPRegressor(neurons=neuron.neuron，
-                   layers_list=[50,30,10]) #Specify the structure of the hidden layers in the MLP.
-clf.fit(X_train, y_train)
-
-# Predict
-clf.predict(X_test)
-```
-
-Use NeuronSeek to search pure polynomial and CP interaction orders, then build
-an MLP from the exported inner-product expression:
-
-```python
-from tnlearn import PolyTensorRegressor
-from tnlearn import MLPRegressor
-from tnlearn.operator.inner_product import neuronseek_config_to_string
-from sklearn.datasets import make_regression
-from sklearn.model_selection import train_test_split
-
-# Generate data.
-X, y = make_regression(n_samples=200, n_features=10, random_state=1)
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
-
-# Search the structure; the MLP will learn its own weights.
-neuron = PolyTensorRegressor(rank=3, poly_order=3, random_state=1)
-neuron.fit(X_train, y_train)
-print(neuron.structure_)
-print(neuron.neuron)
-assert neuron.neuron == (neuronseek_config_to_string(neuron.structure_) or '0')
-
-# The default base mode understands inner products.
-clf = MLPRegressor(neurons=neuron.neuron, layers_list=[50, 30, 10])
-clf.fit(X_train, y_train)
-
-# Predict
-clf.predict(X_test)
-```
-
-`pure_indices` and `interact_indices` are polynomial **orders**, not feature
-indices. A pure order 2 exports `<w1, x**2>`, while an interaction order 2
-exports `<w1, x>*<w2, x>`. Each interaction order exports a sum of `rank`
-independent CP components; omitting `rank` in a manual configuration defaults
-to 1. Fitted search weights, gates and batch-normalization parameters are not
-transferred to the MLP. If all gates are pruned, the searcher exports `'0'`,
-which produces bias-only custom layers.
-
-All export paths, including `track_callback` and `get_significant_polynomial()`,
-use `neuronseek_config_to_string`. Manual configurations may also include
-`periodic=True` to add `<w, sin(x)>`; this searcher selects polynomial orders
-only. `PolyTensorRegressor` supports CP search; the existing
-`PolyTensorRegression` remains the separate legacy CP/Tucker implementation.
-
-After installing pytest, run the focused regression checks with
-`python -m pytest tests/test_neuronseek.py`. The four manual configurations are
-also available in `examples/example_neuronseek_configs.py`.
-
-## DrSR: LLM-based Symbolic Regression
-
-Discover mathematical equations from data using LLMs. DrSR combines LLM reasoning with optimization to find interpretable expressions as task‑based neurons for MLPRegressor.
-
-### Quick Start
-
-```python
-from tnlearn import LLMSymRegressor, MLPRegressor
-from sklearn.datasets import make_regression
-from sklearn.model_selection import train_test_split
-
-# Generate data.
-X, y = make_regression(n_samples=200, random_state=1)
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
-
-# Configure LLM (supporting deepseek, siliconflow, ollama, etc.)
-llm_config = {'model': 'deepseek/deepseek-chat'}  # Set environment variable DEEPSEEK_API_KEY
-
-# Discover task-based neuron via LLM symbolic regression.
-neuron = LLMSymRegressor(llm_config=llm_config, max_iterations=5)
-neuron.fit(X_train, y_train)
-
-# Build neural network using the discovered neuron and train it.
-clf = MLPRegressor(neurons=neuron.neuron, layers_list=[50,30,10])
-clf.fit(X_train, y_train)
-
-# Predict
-clf.predict(X_test)
-```
-
-### Supported LLM Providers
-
-| Provider | Environment Variable | Example `model` |
-|----------|---------------------|-----------------|
-| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek/deepseek-chat` |
-| SiliconFlow | `SILICONFLOW_API_KEY` | `siliconflow/Qwen/Qwen3-8B` |
-| Ollama (local) | – | `ollama/llama3.1:8b` |
-| BLT | `BLT_API_KEY` | `blt/gpt-4` |
-| CSTCloud | `CSTCLOUD_API_KEY` | `cstcloud/gpt-oss-120b` |
-
-# API documentation
-
-Here's our official API documentation, available on [Read the Docs](https://tnlearn-documentation.readthedocs.io/en/latest/index.html).
 
 # Citation
 

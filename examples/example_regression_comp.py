@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 random_seed(100)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 group = 'no1'
 
