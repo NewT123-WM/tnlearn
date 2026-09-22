@@ -1,11 +1,11 @@
 
 <div align="center">
-  <img src="assets/logo.png" width="100%" />
+  <img src="https://raw.githubusercontent.com/NewT123-WM/tnlearn/main/assets/logo.png" width="100%" />
 </div>
 
 Tnlearn is an open source python library. It is based on the symbolic regression algorithm to generate task-based neurons, and then utilizes diverse neurons to build neural networks.
 
-![Static Badge](https://img.shields.io/badge/Python-3.9%2B-brightgreen.svg) ![Static Badge](https://img.shields.io/badge/License-Apache--2.0-blue.svg) ![Static Badge](https://img.shields.io/badge/pypi-v0.1.0-orange?logo=PyPI) ![GitHub Repo stars](https://img.shields.io/github/stars/NewT123-WM/tnlearn?style=flat&logo=github)  
+![Static Badge](https://img.shields.io/badge/Python-3.8%2B-brightgreen.svg) ![Static Badge](https://img.shields.io/badge/License-Apache--2.0-blue.svg) [![PyPI](https://img.shields.io/pypi/v/tnlearn.svg?logo=pypi)](https://pypi.org/project/tnlearn/) ![GitHub Repo stars](https://img.shields.io/github/stars/NewT123-WM/tnlearn?style=flat&logo=github)  
 
 # Quick links
 
@@ -39,7 +39,7 @@ Tnlearn is an open source python library. It is based on the symbolic regression
 # Framework
 
 <div align="center">
-  <img src="assets/framework.drawio.svg" alt="Tnlearn framework" width="100%" />
+  <img src="https://raw.githubusercontent.com/NewT123-WM/tnlearn/main/assets/framework.drawio.svg" alt="Tnlearn framework" width="100%" />
 </div>
 
 # Features

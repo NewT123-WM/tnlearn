@@ -14,7 +14,7 @@
 # ==============================================================================
 """ A Python package that uses task-based neurons to build neural networks. """
 
-__version__ = '0.2.0.dev0'
+__version__ = '0.2.0'
 
 from tnlearn.gp_regressor import GPSymRegressor, VecSymRegressor
 from tnlearn.mlpregressor import MLPRegressor
