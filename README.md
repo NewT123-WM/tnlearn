@@ -248,6 +248,13 @@ Here is a resource summary for neuronal diversity in artificial networks.
 If you find Tnlearn useful, please cite it in your publications.
 
 ```bibtex
+@article{wang2026tnlearn,
+  title={TNLearn: An Open Source Python Package for Task-based Neurons},
+  author={Wang, Meng and Li, Tieyun and Fan, Juntong and Pei, Hanyu and Liao, Jing-Xiao and Yang, Yaodong and Ma, Jianwei and Fan, Fenglei},
+  journal={arXiv preprint arXiv:2609.27564},
+  year={2026}
+}
+
 @article{fan2026no,
   title={No one-size-fits-all neurons: Task-based neurons for artificial neural networks},
   author={Fan, Feng-Lei and Wang, Meng and Dong, Hang-Cheng and Ma, Jianwei and Zeng, Tieyong},
