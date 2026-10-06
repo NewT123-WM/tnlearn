@@ -94,8 +94,8 @@ class BaseCustomNeuronLayer(nn.Module):
                                                   already_parametrized=already_parametrized)
         self.param_expr_str = str(self.param_expr)
 
-        # 3. Extract all symbols
-        all_symbols = self.param_expr.free_symbols
+        # 3. Fix symbol order before initialization, independent of PYTHONHASHSEED.
+        all_symbols = sorted(self.param_expr.free_symbols, key=str)
         x_sym = symbols('x')
         weight_symbols = [sym for sym in all_symbols if sym != x_sym]
         self.w_syms = [str(sym) for sym in weight_symbols if str(sym).startswith('w')]

@@ -1,0 +1,44 @@
+name: Neuron reproducibility tests
+
+on:
+  pull_request:
+    paths:
+      - 'tnlearn/**'
+      - 'tests/test_mlp_initialization.py'
+      - 'tests/test_random_formula.py'
+      - 'pyproject.toml'
+      - '.github/workflows/reproducibility.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproducibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install CPU dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install .
+      - name: Test initialization and random formulas
+        env:
+          CUDA_VISIBLE_DEVICES: ''
+          MPLBACKEND: Agg
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        run: >-
+          python -m unittest
+          tests.test_mlp_initialization tests.test_random_formula -v
