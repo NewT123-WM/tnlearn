@@ -14,7 +14,7 @@
 # ==============================================================================
 """ A Python package that uses task-based neurons to build neural networks. """
 
-__version__ = '0.2.0'
+__version__ = '0.2.1.dev0'
 
 from tnlearn.gp_regressor import GPSymRegressor, VecSymRegressor
 from tnlearn.mlpregressor import MLPRegressor
@@ -26,6 +26,7 @@ from tnlearn.poly_regressor import PolyTensorRegression, PolyTensorRegressor
 
 from tnlearn.drsr import LLMSymRegressor
 from tnlearn.rl_regressor import RLRegressor, RLSymRegressor
+from tnlearn.random_formula import RandomFormulaGenerator, generate_for_combo
 
 from tnlearn.modules import *
 from tnlearn import modules
@@ -43,6 +44,8 @@ __all__ = [
     'LLMSymRegressor',           
     'RLRegressor', # legacy
     'RLSymRegressor',                   
+    'RandomFormulaGenerator',
+    'generate_for_combo',
 ]
 
 if hasattr(modules, '__all__'):

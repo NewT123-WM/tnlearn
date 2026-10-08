@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Added `RandomFormulaGenerator` and `generate_for_combo` for seeded random
+  neuron expressions and bounded complexity-based candidate generation.
+- Added tests and CI for random-state isolation, bounded candidate
+  generation, and hash-independent MLP initialization.
+
+### Fixed
+- Sorted base-mode MLP classifier and regressor parameter symbols before
+  initialization so Python hash randomization cannot change their assignments.
+  Older checkpoints require their original symbol-to-tensor mapping; this
+  change does not guarantee identical training across numerical environments.
+
 ## [0.2.0] - 2026-09-21
 
 ### Added
